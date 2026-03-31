@@ -1,0 +1,12 @@
+# OpenSearch server reference — documentation only, NOT loaded at runtime.
+# All runtime config is loaded from .env via python-dotenv.
+# This file exists so you can understand the server setup without digging through code.
+
+host: api.novasearch.org
+port: 443
+url_prefix: opensearch_v3
+ssl: true
+verify_certs: false
+
+# Index name = your username (set OPENSEARCH_INDEX in .env)
+# One index per student on the shared course server.

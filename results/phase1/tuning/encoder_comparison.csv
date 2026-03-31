@@ -1,0 +1,4 @@
+encoder,display,map,mrr,p10,note
+medcpt,MedCPT (asymmetric),0.6095038965068743,0.8567708333333334,0.725,Biomedical bi-encoder trained on PubMed click data
+multi-qa,multi-qa-mpnet-base-cos-v1,0.5272557576572741,0.8307291666666666,0.69375,Trained on 215M QA pairs - strong general QA alignment
+msmarco,msmarco-distilbert-base-v2,0.42677207561332614,0.7979166666666666,0.634375,Current baseline (web search domain)

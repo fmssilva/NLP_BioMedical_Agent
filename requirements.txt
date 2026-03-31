@@ -1,0 +1,11 @@
+opensearch-py
+sentence-transformers
+transformers
+torch
+python-dotenv
+tqdm
+numpy
+matplotlib
+scikit-learn
+pyyaml
+openai
