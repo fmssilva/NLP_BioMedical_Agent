@@ -292,116 +292,110 @@ def load_run(path: str | Path) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Self-test / main pipeline: python -m src.evaluation.evaluator
+# Convenience entry-point callable from notebooks or other scripts
 # ---------------------------------------------------------------------------
-if __name__ == "__main__":
+
+def run_baseline_evaluation(
+    client=None,
+    index_name: str = "",
+    encoder: "Encoder | None" = None,
+    corpus: list[dict] | None = None,
+    train_topics: list[dict] | None = None,
+    test_topics: list[dict] | None = None,
+    qrels: dict | None = None,
+    output_dir: str | Path = Path(__file__).resolve().parents[2] / "results" / "phase1",
+) -> dict:
+    """
+    Run the full baseline evaluation pipeline (field ablation, LM-JM selection,
+    all-strategy evaluation on train + test) and save run files to output_dir.
+
+    Always overwrites existing run files.
+
+    Args:
+        client:       OpenSearch client (created from env if None)
+        index_name:   index to query (read from OPENSEARCH_INDEX env if empty)
+        encoder:      Encoder instance for KNN/RRF (created with defaults if None)
+        corpus:       list of corpus dicts (loaded from disk if None)
+        train_topics: train topic list (loaded from disk if None)
+        test_topics:  test topic list (loaded from disk if None)
+        qrels:        binary qrels dict (loaded from disk if None)
+        output_dir:   directory to write *_run.json and *_train_run.json files
+
+    Returns:
+        dict with keys 'train_results' and 'test_results', each mapping
+        strategy name -> run_strategy result dict
+    """
     import logging
-    logging.basicConfig(
-        level=logging.WARNING,
-        format="%(levelname)s  %(name)s  %(message)s",
-    )
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s  %(name)s  %(message)s")
 
-    print("=" * 62)
-    print("Step 14 — Evaluation Pipeline (train set)")
-    print("=" * 62)
-
+    output_dir = Path(output_dir)
     root = Path(__file__).resolve().parents[2]
 
-    # 1. Load data
-    print("\n[1/6] Loading data ...")
     from dotenv import load_dotenv
     load_dotenv()
-    index_name = os.getenv("OPENSEARCH_INDEX", "")
-    assert index_name, "OPENSEARCH_INDEX not set in .env"
 
-    corpus = load_corpus(root / "data" / "filtered_pubmed_abstracts.txt")
+    if corpus is None:
+        corpus = load_corpus(root / "data" / "filtered_pubmed_abstracts.txt")
     all_doc_ids = [doc["id"] for doc in corpus]
-    print(f"  Corpus: {len(corpus)} docs")
+    print(f"Corpus: {len(corpus)} docs")
 
-    all_topics = load_topics(root / "data" / "BioGen2024topics.json")
+    if train_topics is None:
+        with open(root / "results" / "splits" / "train_queries.json") as f:
+            train_topics = json.load(f)
+    if test_topics is None:
+        with open(root / "results" / "splits" / "test_queries.json") as f:
+            test_topics = json.load(f)
+    print(f"Train queries: {len(train_topics)}, Test queries: {len(test_topics)}")
 
-    # load pre-saved splits
-    with open(root / "results" / "splits" / "train_queries.json") as f:
-        train_topics = json.load(f)
-    with open(root / "results" / "splits" / "test_queries.json") as f:
-        test_topics = json.load(f)
-    print(f"  Train queries: {len(train_topics)}, Test queries: {len(test_topics)}")
+    if qrels is None:
+        with open(root / "results" / "qrels.json") as f:
+            qrels = json.load(f)
+    print(f"Qrels topics: {len(qrels)}")
 
-    with open(root / "results" / "qrels.json") as f:
-        qrels = json.load(f)
-    print(f"  Qrels topics: {len(qrels)}")
+    if client is None:
+        client = get_client()
+    if not index_name:
+        index_name = os.getenv("OPENSEARCH_INDEX", "")
+    assert index_name, "OPENSEARCH_INDEX not set"
 
-    # 2. Connect to OpenSearch
-    print("\n[2/6] Connecting to OpenSearch ...")
-    client = get_client()
-    print("  Connected.")
+    if encoder is None:
+        encoder = Encoder()
 
-    # 3. Load encoder (reuse for KNN + RRF)
-    print("\n[3/6] Loading encoder ...")
-    encoder = Encoder()
+    print("=" * 62)
+    print("Baseline Evaluation Pipeline (train set)")
+    print("=" * 62)
 
-    # 4. Query field ablation
-    print("\n[4/6] Running query field ablation on train set ...")
     best_field = field_ablation(client, index_name, all_doc_ids, train_topics, qrels)
+    best_lmjm  = lmjm_lambda_selection(client, index_name, all_doc_ids, train_topics, qrels, best_field)
 
-    # 5. LM-JM lambda selection
-    print("\n[5/6] Running LM-JM lambda selection on train set ...")
-    best_lmjm = lmjm_lambda_selection(
-        client, index_name, all_doc_ids, train_topics, qrels, best_field
-    )
-
-    # 6. Full strategy comparison on train set
-    print("\n[6/6] Evaluating all strategies on train set ...")
     train_results = evaluate_all_strategies(
         client, index_name, encoder, all_doc_ids,
         train_topics, qrels, best_field, best_lmjm, set_name="train",
     )
-
-    # Save train run files
     for name, result in train_results.items():
         safe_name = name.lower().replace("-", "_")
-        save_run(result["run"], root / "results" / "phase1" / f"{safe_name}_train_run.json")
-
-    # Per-topic AP summary table (train)
-    print("\n  Per-topic AP summary (train) — top/bottom 3 topics by BM25 AP:")
-    bm25_per_q = train_results["BM25"]["per_query"]
-    sorted_q = sorted(bm25_per_q.items(), key=lambda x: x[1]["AP"])
-    for qid, vals in sorted_q[:3]:
-        print(f"    Topic {qid:>3}: AP={vals['AP']:.4f}  (low — hard for BM25)")
-    for qid, vals in sorted_q[-3:]:
-        print(f"    Topic {qid:>3}: AP={vals['AP']:.4f}  (high — easy for BM25)")
-
-    # ── Step 15: Test set evaluation ────────────────────────────────────────
-    print("\n" + "=" * 62)
-    print("Step 15 — Evaluation Pipeline (test set, locked hyperparams)")
-    print("=" * 62)
-    print(f"  Locked field   : {best_field}")
-    print(f"  Locked LM-JM λ : {best_lmjm} (lambda={'0.1' if best_lmjm == '01' else '0.7'})")
-    print(f"  Test queries   : {len(test_topics)}")
+        save_run(result["run"], output_dir / f"{safe_name}_train_run.json")
 
     test_results = evaluate_all_strategies(
         client, index_name, encoder, all_doc_ids,
         test_topics, qrels, best_field, best_lmjm, set_name="test",
     )
-
-    # Save test run files (no _train_ suffix — these are the final run files)
     for name, result in test_results.items():
         safe_name = name.lower().replace("-", "_")
-        save_run(result["run"], root / "results" / "phase1" / f"{safe_name}_run.json")
-
-    # Per-topic AP summary table (test)
-    print("\n  Per-topic AP summary (test) — top/bottom 3 topics by BM25 AP:")
-    bm25_per_q_test = test_results["BM25"]["per_query"]
-    sorted_q_test = sorted(bm25_per_q_test.items(), key=lambda x: x[1]["AP"])
-    for qid, vals in sorted_q_test[:3]:
-        print(f"    Topic {qid:>3}: AP={vals['AP']:.4f}  (low — hard for BM25)")
-    for qid, vals in sorted_q_test[-3:]:
-        print(f"    Topic {qid:>3}: AP={vals['AP']:.4f}  (high — easy for BM25)")
+        save_run(result["run"], output_dir / f"{safe_name}_run.json")
 
     print("\n" + "=" * 62)
-    print("Pipeline complete.")
+    print("Baseline evaluation complete.")
     print(f"  Best query field : {best_field}")
-    print(f"  Best LM-JM lambda: {best_lmjm} (lambda={'0.1' if best_lmjm == '01' else '0.7'})")
-    print(f"  Train results saved to : results/phase1/*_train_run.json")
-    print(f"  Test  results saved to : results/phase1/*_run.json")
+    print(f"  Best LM-JM lambda: {best_lmjm}")
+    print(f"  Run files saved to: {output_dir}")
     print("=" * 62)
+
+    return {"train_results": train_results, "test_results": test_results}
+
+
+# ---------------------------------------------------------------------------
+# Self-test / main pipeline: python -m src.evaluation.evaluator
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
+    run_baseline_evaluation()

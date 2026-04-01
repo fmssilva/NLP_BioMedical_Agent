@@ -16,19 +16,9 @@ Relationship to evaluator.py:
   The two files share build_query() and save_run()/load_run() from evaluator.py
   but the evaluate_retriever() function here is a superset with richer output.
 
-Tuned configuration (locked from train experiments):
-  - Query field:  concatenated (topic + question + narrative)
-  - LM-JM:       lambda=0.7 (variant '07')
-  - LM-Dir:      mu=75  (field: contents_lmdir_75)
-  - BM25:        k1=1.5, b=1.0  (field: contents_bm25_k15_b10)
-  - KNN:         MedCPT encoder (embedding_medcpt field)
-  - RRF:         tuned BM25 + MedCPT KNN, k=60
-
-Baseline configuration (for comparison):
-  - LM-Dir:      mu=2000 (field: contents_lmdir)
-  - BM25:        k1=1.2, b=0.75 (field: contents)
-  - KNN:         msmarco-distilbert (field: embedding)
-  - RRF:         default BM25 + msmarco KNN
+Tuned configuration (locked from train experiments) — see PHASE_1_BEST_CONFIG below.
+Baseline configuration (for comparison) uses the default index fields: contents,
+contents_lmdir (mu=2000), embedding (msmarco-distilbert).
 
 Usage:
     python -m src.evaluation.final_eval              # run full eval
@@ -68,41 +58,41 @@ from src.evaluation.metrics import (
     results_to_ranking,
     results_to_ranking_graded,
 )
+from src.indexing.index_builder import _BEST_PARAMS
 from src.indexing.opensearch_client import get_client
+from src.retrieval.base import FieldRetriever
 from src.retrieval.rrf import rrf_merge
 
 logger = logging.getLogger(__name__)
 
-# tuned params from train experiments
-QUERY_FIELD   = "concatenated"
-LMJM_VARIANT  = "07"
-BEST_MU       = 75
-BEST_K1       = 1.5
-BEST_B        = 1.0
+# ---------------------------------------------------------------------------
+# Locked best configuration — set once here, used everywhere below
+# These come from 5-fold CV on 32 train queries (see results/phase1/tuning/)
+# ---------------------------------------------------------------------------
+
+_lmjm_best  = _BEST_PARAMS["lmjm_lambdas"][0]          # 0.7
+_lmdir_best = _BEST_PARAMS["lmdir_mus"][0]              # 75
+_bm25_k1    = _BEST_PARAMS["bm25_k1_b_pairs"][0][0]    # 1.5
+_bm25_b     = _BEST_PARAMS["bm25_k1_b_pairs"][0][1]    # 1.0
+
+PHASE_1_BEST_CONFIG = {
+    "query_field":  "concatenated",                # topic + question + narrative
+    "lmjm_variant": str(_lmjm_best).replace(".", ""),          # "07"
+    "lmjm_field":   f"contents_lmjm_{str(_lmjm_best).replace('.', '')}",  # contents_lmjm_07
+    "lmdir_field":  f"contents_lmdir_{_lmdir_best}",           # contents_lmdir_75
+    "bm25_field":   f"contents_bm25_k{str(_bm25_k1).replace('.','')}_b{str(_bm25_b).replace('.', '')}",  # contents_bm25_k15_b10
+    "knn_field":    "embedding_medcpt",
+    "encoder":      _BEST_PARAMS["encoders"][0][1],   # ncbi/MedCPT-Query-Encoder
+}
+
+# convenience aliases used throughout this file
+QUERY_FIELD   = PHASE_1_BEST_CONFIG["query_field"]
+LMJM_VARIANT  = PHASE_1_BEST_CONFIG["lmjm_variant"]
+BEST_MU       = _lmdir_best
+BEST_K1       = _bm25_k1
+BEST_B        = _bm25_b
 MEDCPT_EMB_PATH = ROOT / "results" / "phase1" / "tuning" / "embeddings" / "medcpt_docs.npy"
 PHASE1_DIR    = ROOT / "results" / "phase1"
-
-
-# ---------------------------------------------------------------------------
-# Generic retriever that searches a specific text field
-# ---------------------------------------------------------------------------
-
-class FieldRetriever:
-    """Search a specific text field in the index. Works for any BM25/LM field."""
-
-    def __init__(self, client, index_name: str, field: str):
-        self.client = client
-        self.index_name = index_name
-        self.field = field
-
-    def search(self, query: str, size: int = 100) -> list[tuple[str, float]]:
-        body = {
-            "size": size,
-            "_source": ["doc_id"],
-            "query": {"match": {self.field: {"query": query}}},
-        }
-        resp = self.client.search(body=body, index=self.index_name)
-        return [(h["_source"]["doc_id"], h["_score"]) for h in resp["hits"]["hits"]]
 
 
 # ---------------------------------------------------------------------------
@@ -401,6 +391,155 @@ def print_comparison(results: dict[str, dict], label: str = "Test Set") -> None:
 
 
 # ---------------------------------------------------------------------------
+# Convenience entry-point callable from notebooks or other scripts
+# ---------------------------------------------------------------------------
+
+def run_final_evaluation(
+    client=None,
+    index_name: str = "",
+    corpus: list[dict] | None = None,
+    test_topics: list[dict] | None = None,
+    train_topics: list[dict] | None = None,
+    qrels: dict | None = None,
+    qrels_graded: dict | None = None,
+    output_dir: str | Path = PHASE1_DIR,
+    add_medcpt: bool = False,
+) -> dict:
+    """
+    Run the full final Phase 1 evaluation (baseline + tuned, test set) and save run files.
+
+    Always overwrites existing run files.
+
+    Args:
+        client:       OpenSearch client (created from env if None)
+        index_name:   index to query (read from OPENSEARCH_INDEX env if empty)
+        corpus:       list of corpus dicts (loaded from disk if None)
+        test_topics:  test topic list (loaded from disk if None)
+        train_topics: train topic list (loaded from disk if None)
+        qrels:        binary qrels dict (loaded from disk if None)
+        qrels_graded: graded qrels dict (loaded from disk if None)
+        output_dir:   directory to write run JSON files
+        add_medcpt:   index MedCPT embeddings into OpenSearch before evaluation
+
+    Returns:
+        dict with keys 'baseline_results' and 'tuned_results'
+    """
+    output_dir = Path(output_dir)
+
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    if corpus is None:
+        corpus = load_corpus(ROOT / "data" / "filtered_pubmed_abstracts.txt")
+    all_doc_ids = [doc["id"] for doc in corpus]
+
+    if test_topics is None:
+        with open(ROOT / "results" / "splits" / "test_queries.json") as f:
+            test_topics = json.load(f)
+    if train_topics is None:
+        with open(ROOT / "results" / "splits" / "train_queries.json") as f:
+            train_topics = json.load(f)
+    if qrels is None:
+        with open(ROOT / "results" / "qrels.json") as f:
+            qrels = json.load(f)
+    if qrels_graded is None:
+        with open(ROOT / "results" / "qrels_graded.json") as f:
+            qrels_graded = json.load(f)
+
+    print(f"Corpus: {len(corpus)} docs  |  Test: {len(test_topics)} queries")
+
+    if client is None:
+        client = get_client()
+    if not index_name:
+        index_name = os.getenv("OPENSEARCH_INDEX", "")
+    assert index_name, "OPENSEARCH_INDEX not set"
+
+    if add_medcpt:
+        add_medcpt_field(client, index_name)
+        populate_medcpt_embeddings(client, index_name, corpus)
+
+    from src.retrieval.lm_jelinek_mercer import LMJMRetriever
+    from src.embeddings.encoder import Encoder
+    from src.retrieval.knn import KNNRetriever
+
+    lmjm       = LMJMRetriever(client, index_name, lambda_variant=LMJM_VARIANT)
+    encoder    = Encoder()
+    bm25_base  = FieldRetriever(client, index_name, "contents")
+    lmdir_base = FieldRetriever(client, index_name, "contents_lmdir")
+    knn_base   = KNNRetriever(client, index_name, encoder=encoder)
+    bm25_tuned  = FieldRetriever(client, index_name, "contents_bm25_k15_b10")
+    lmdir_tuned = FieldRetriever(client, index_name, "contents_lmdir_75")
+
+    mapping   = client.indices.get_mapping(index=index_name)
+    actual_key = list(mapping.keys())[0]
+    has_medcpt = "embedding_medcpt" in mapping[actual_key]["mappings"]["properties"]
+
+    print("=" * 78)
+    print("Phase 1 -- Final Evaluation with Tuned Parameters")
+    print("=" * 78)
+
+    print("\n--- Evaluating BASELINE strategies on test set ---")
+    baseline_results = {}
+    for label, retriever in [
+        ("BM25 (default)",   bm25_base),
+        ("LM-JM (lam=0.7)", lmjm),
+        ("LM-Dir (mu=2000)", lmdir_base),
+        ("KNN (msmarco)",    knn_base),
+    ]:
+        print(f"  {label} ...", end="", flush=True)
+        baseline_results[label] = evaluate_retriever(retriever, test_topics, qrels, qrels_graded, all_doc_ids)
+        print(" done")
+
+    print("  RRF (BM25+msmarco) ...", end="", flush=True)
+    baseline_results["RRF (default)"] = evaluate_rrf(bm25_base, knn_base, test_topics, qrels, qrels_graded, all_doc_ids)
+    print(" done")
+    print_comparison(baseline_results, "Test Set -- BASELINE (default params)")
+
+    print("\n--- Evaluating TUNED strategies on test set ---")
+    tuned_results = {}
+
+    print("  BM25 (k1=1.5, b=1.0) ...", end="", flush=True)
+    tuned_results["BM25 (tuned)"] = evaluate_retriever(bm25_tuned, test_topics, qrels, qrels_graded, all_doc_ids)
+    print(" done")
+
+    tuned_results["LM-JM (lam=0.7)"] = baseline_results["LM-JM (lam=0.7)"]
+
+    print("  LM-Dir (mu=75) ...", end="", flush=True)
+    tuned_results["LM-Dir (mu=75)"] = evaluate_retriever(lmdir_tuned, test_topics, qrels, qrels_graded, all_doc_ids)
+    print(" done")
+
+    if has_medcpt:
+        medcpt_knn = MedCPTKNNRetriever(client, index_name)
+        print("  KNN (MedCPT) ...", end="", flush=True)
+        tuned_results["KNN (MedCPT)"] = evaluate_retriever(medcpt_knn, test_topics, qrels, qrels_graded, all_doc_ids)
+        print(" done")
+        print("  RRF (tuned BM25 + MedCPT) ...", end="", flush=True)
+        tuned_results["RRF (tuned)"] = evaluate_rrf(bm25_tuned, medcpt_knn, test_topics, qrels, qrels_graded, all_doc_ids)
+        print(" done")
+    else:
+        print("  [skip] MedCPT KNN -- embedding_medcpt field not in index. Re-run with add_medcpt=True.")
+        print("  RRF (tuned BM25 + msmarco) ...", end="", flush=True)
+        tuned_results["RRF (tuned BM25)"] = evaluate_rrf(bm25_tuned, knn_base, test_topics, qrels, qrels_graded, all_doc_ids)
+        print(" done")
+
+    print_comparison(tuned_results, "Test Set -- TUNED (best params from train)")
+
+    # save run files
+    for name, r in tuned_results.items():
+        safe = name.lower().replace(" ", "_").replace("(", "").replace(")", "").replace("=", "")
+        save_run(r["run"], output_dir / f"{safe}_run.json")
+
+    summary = {n: {"MAP": r["MAP"], "MRR": r["MRR"], "P@10": r["P@10"],
+                   "R@100": r["R@100"], "NDCG@10": r["NDCG@10"]}
+               for n, r in {**baseline_results, **tuned_results}.items()}
+    with open(output_dir / "final_eval_summary.json", "w") as f:
+        json.dump(summary, f, indent=2)
+    print(f"\nSaved summary: {output_dir / 'final_eval_summary.json'}")
+
+    return {"baseline_results": baseline_results, "tuned_results": tuned_results}
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -412,226 +551,4 @@ if __name__ == "__main__":
                         help="Add MedCPT embedding field to index before evaluation")
     args = parser.parse_args()
 
-    print("=" * 78)
-    print("Phase 1 -- Final Evaluation with Tuned Parameters")
-    print("=" * 78)
-
-    # -- load data --
-    corpus = load_corpus(ROOT / "data" / "filtered_pubmed_abstracts.txt")
-    all_doc_ids = [doc["id"] for doc in corpus]
-
-    with open(ROOT / "results" / "splits" / "test_queries.json") as f:
-        test_topics = json.load(f)
-    with open(ROOT / "results" / "splits" / "train_queries.json") as f:
-        train_topics = json.load(f)
-    with open(ROOT / "results" / "qrels.json") as f:
-        qrels = json.load(f)
-    with open(ROOT / "results" / "qrels_graded.json") as f:
-        qrels_graded = json.load(f)
-
-    print(f"Corpus: {len(corpus)} docs  |  Test: {len(test_topics)} queries  |  Train: {len(train_topics)} queries")
-
-    # -- connect --
-    client = get_client()
-    index_name = os.getenv("OPENSEARCH_INDEX", "")
-    assert index_name, "OPENSEARCH_INDEX not set"
-
-    # -- add MedCPT field if requested --
-    if args.add_medcpt:
-        add_medcpt_field(client, index_name)
-        populate_medcpt_embeddings(client, index_name, corpus)
-
-    # -- build retrievers --
-    # baseline retrievers (default params)
-    from src.retrieval.lm_jelinek_mercer import LMJMRetriever
-    from src.embeddings.encoder import Encoder
-
-    lmjm    = LMJMRetriever(client, index_name, lambda_variant=LMJM_VARIANT)
-    encoder = Encoder()
-
-    # baseline (old params)
-    bm25_base  = FieldRetriever(client, index_name, "contents")                   # k1=1.2, b=0.75
-    lmdir_base = FieldRetriever(client, index_name, "contents_lmdir")             # mu=2000
-    from src.retrieval.knn import KNNRetriever
-    knn_base   = KNNRetriever(client, index_name, encoder=encoder)                # msmarco
-
-    # tuned (new params)
-    bm25_tuned  = FieldRetriever(client, index_name, "contents_bm25_k15_b10")    # k1=1.5, b=1.0
-    lmdir_tuned = FieldRetriever(client, index_name, "contents_lmdir_75")         # mu=75
-
-    # check if MedCPT field exists in index
-    mapping = client.indices.get_mapping(index=index_name)
-    actual_key = list(mapping.keys())[0]
-    has_medcpt = "embedding_medcpt" in mapping[actual_key]["mappings"]["properties"]
-
-    # =====================================================================
-    # BASELINE evaluation (same as old test results, for comparison)
-    # =====================================================================
-    print("\n--- Evaluating BASELINE strategies on test set ---")
-
-    baseline_results = {}
-    print("  BM25 (k1=1.2, b=0.75) ...", end="", flush=True)
-    baseline_results["BM25 (default)"] = evaluate_retriever(
-        bm25_base, test_topics, qrels, qrels_graded, all_doc_ids
-    )
-    print(" done")
-
-    print("  LM-JM (lambda=0.7) ...", end="", flush=True)
-    baseline_results["LM-JM (lam=0.7)"] = evaluate_retriever(
-        lmjm, test_topics, qrels, qrels_graded, all_doc_ids
-    )
-    print(" done")
-
-    print("  LM-Dir (mu=2000) ...", end="", flush=True)
-    baseline_results["LM-Dir (mu=2000)"] = evaluate_retriever(
-        lmdir_base, test_topics, qrels, qrels_graded, all_doc_ids
-    )
-    print(" done")
-
-    print("  KNN (msmarco) ...", end="", flush=True)
-    baseline_results["KNN (msmarco)"] = evaluate_retriever(
-        knn_base, test_topics, qrels, qrels_graded, all_doc_ids
-    )
-    print(" done")
-
-    print("  RRF (BM25+msmarco) ...", end="", flush=True)
-    baseline_results["RRF (default)"] = evaluate_rrf(
-        bm25_base, knn_base, test_topics, qrels, qrels_graded, all_doc_ids
-    )
-    print(" done")
-
-    print_comparison(baseline_results, "Test Set -- BASELINE (default params)")
-
-    # =====================================================================
-    # TUNED evaluation
-    # =====================================================================
-    print("\n--- Evaluating TUNED strategies on test set ---")
-
-    tuned_results = {}
-
-    print("  BM25 (k1=1.5, b=1.0) ...", end="", flush=True)
-    tuned_results["BM25 (tuned)"] = evaluate_retriever(
-        bm25_tuned, test_topics, qrels, qrels_graded, all_doc_ids
-    )
-    print(" done")
-
-    # LM-JM unchanged -- lambda=0.7 was already the winner, no new params
-    tuned_results["LM-JM (lam=0.7)"] = baseline_results["LM-JM (lam=0.7)"]
-
-    print("  LM-Dir (mu=75) ...", end="", flush=True)
-    tuned_results["LM-Dir (mu=75)"] = evaluate_retriever(
-        lmdir_tuned, test_topics, qrels, qrels_graded, all_doc_ids
-    )
-    print(" done")
-
-    if has_medcpt:
-        medcpt_knn = MedCPTKNNRetriever(client, index_name)
-        print("  KNN (MedCPT) ...", end="", flush=True)
-        tuned_results["KNN (MedCPT)"] = evaluate_retriever(
-            medcpt_knn, test_topics, qrels, qrels_graded, all_doc_ids
-        )
-        print(" done")
-
-        print("  RRF (tuned BM25 + MedCPT) ...", end="", flush=True)
-        tuned_results["RRF (tuned)"] = evaluate_rrf(
-            bm25_tuned, medcpt_knn, test_topics, qrels, qrels_graded, all_doc_ids
-        )
-        print(" done")
-    else:
-        print("  [skip] MedCPT KNN -- field not in index. Run with --add-medcpt first.")
-        # fallback: use msmarco KNN with tuned BM25
-        print("  RRF (tuned BM25 + msmarco KNN) ...", end="", flush=True)
-        tuned_results["RRF (tuned BM25)"] = evaluate_rrf(
-            bm25_tuned, knn_base, test_topics, qrels, qrels_graded, all_doc_ids
-        )
-        print(" done")
-
-    print_comparison(tuned_results, "Test Set -- TUNED (best params from train)")
-
-    # =====================================================================
-    # Side-by-side delta table
-    # =====================================================================
-    print(f"\n{'=' * 78}")
-    print("Baseline vs Tuned -- per-component improvement (test set)")
-    print(f"{'=' * 78}")
-    print(f"{'Component':>22} | {'Base MAP':>9} | {'Tuned MAP':>10} | {'Delta':>8}")
-    print("-" * 58)
-
-    pairs = [
-        ("BM25",   "BM25 (default)",    "BM25 (tuned)"),
-        ("LM-Dir", "LM-Dir (mu=2000)",  "LM-Dir (mu=75)"),
-    ]
-    if has_medcpt:
-        pairs.append(("KNN",   "KNN (msmarco)",     "KNN (MedCPT)"))
-        pairs.append(("RRF",   "RRF (default)",     "RRF (tuned)"))
-
-    for label, bkey, tkey in pairs:
-        bmap = baseline_results[bkey]["MAP"]
-        tmap = tuned_results[tkey]["MAP"]
-        print(f"{label:>22} | {bmap:>9.4f} | {tmap:>10.4f} | {tmap - bmap:>+8.4f}")
-
-    # =====================================================================
-    # Save tuned run files
-    # =====================================================================
-    for name, r in tuned_results.items():
-        safe = name.lower().replace(" ", "_").replace("(", "").replace(")", "").replace("=", "")
-        save_run(r["run"], PHASE1_DIR / f"{safe}_run.json")
-
-    # also save the full results dict as JSON for the notebook to load
-    summary = {}
-    for name, r in {**baseline_results, **tuned_results}.items():
-        summary[name] = {
-            "MAP": r["MAP"], "MRR": r["MRR"], "P@10": r["P@10"],
-            "R@100": r["R@100"], "NDCG@10": r["NDCG@10"],
-        }
-    with open(PHASE1_DIR / "final_eval_summary.json", "w") as f:
-        json.dump(summary, f, indent=2)
-    print(f"\nSaved: {PHASE1_DIR / 'final_eval_summary.json'}")
-
-    # =====================================================================
-    # Also run tuned on TRAIN set for comparison (Task 13)
-    # =====================================================================
-    print("\n--- Evaluating TUNED strategies on TRAIN set (for comparison) ---")
-
-    train_tuned = {}
-    print("  BM25 (k1=1.5, b=1.0) on train ...", end="", flush=True)
-    train_tuned["BM25 (tuned)"] = evaluate_retriever(
-        bm25_tuned, train_topics, qrels, qrels_graded, all_doc_ids
-    )
-    print(" done")
-
-    print("  LM-Dir (mu=75) on train ...", end="", flush=True)
-    train_tuned["LM-Dir (mu=75)"] = evaluate_retriever(
-        lmdir_tuned, train_topics, qrels, qrels_graded, all_doc_ids
-    )
-    print(" done")
-
-    if has_medcpt:
-        print("  KNN (MedCPT) on train ...", end="", flush=True)
-        train_tuned["KNN (MedCPT)"] = evaluate_retriever(
-            medcpt_knn, train_topics, qrels, qrels_graded, all_doc_ids
-        )
-        print(" done")
-
-        print("  RRF (tuned) on train ...", end="", flush=True)
-        train_tuned["RRF (tuned)"] = evaluate_rrf(
-            bm25_tuned, medcpt_knn, train_topics, qrels, qrels_graded, all_doc_ids
-        )
-        print(" done")
-
-    print_comparison(train_tuned, "Train Set -- TUNED (for comparison)")
-
-    # save train tuned summary
-    train_summary = {}
-    for name, r in train_tuned.items():
-        train_summary[name] = {
-            "MAP": r["MAP"], "MRR": r["MRR"], "P@10": r["P@10"],
-            "R@100": r["R@100"], "NDCG@10": r["NDCG@10"],
-        }
-    with open(PHASE1_DIR / "final_eval_train_summary.json", "w") as f:
-        json.dump(train_summary, f, indent=2)
-    print(f"Saved: {PHASE1_DIR / 'final_eval_train_summary.json'}")
-
-    print("\n" + "=" * 78)
-    print("Final evaluation complete.")
-    print("=" * 78)
+    run_final_evaluation(add_medcpt=args.add_medcpt)

@@ -2,7 +2,7 @@
 .env
 
 # Large precomputed embeddings (regeneratable by running corpus_encoder.py)
-embeddings/
+/embeddings/
 
 # Python
 __pycache__/

@@ -23,7 +23,6 @@ touching the OpenSearch index. Only if an encoder wins do we add a KNN field.
 
 Usage:
     python -m src.tuning.alt_encoder_eval           # run comparison, save CSV
-    python -m src.tuning.alt_encoder_eval --force   # re-run even if CSV exists
     python -m src.tuning.alt_encoder_eval --show    # print existing CSV
     python -m src.tuning.alt_encoder_eval --encoders msmarco medcpt   # subset
 
@@ -372,11 +371,65 @@ def load_and_print_results(path: Path) -> None:
 # Entry point
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Convenience entry-point callable from notebooks or other scripts
+# ---------------------------------------------------------------------------
+
+def run_encoder_comparison_and_save(
+    corpus: list[dict] | None = None,
+    train_topics: list[dict] | None = None,
+    qrels: dict | None = None,
+    all_doc_ids: list[str] | None = None,
+    output_csv: str | Path = OUTPUT_CSV,
+    encoder_keys: list[str] | None = None,
+    force_encode: bool = False,
+) -> list[dict]:
+    """
+    Compare dense encoders on the train set and save results to CSV. Always overwrites existing CSV.
+
+    Args:
+        corpus:        list of corpus dicts (loaded from disk if None)
+        train_topics:  list of train topic dicts (loaded from splits if None)
+        qrels:         binary qrels dict (loaded from disk if None)
+        all_doc_ids:   list of all corpus PMIDs (derived from corpus if None)
+        output_csv:    path to write CSV results
+        encoder_keys:  which encoders to evaluate (default: all in ENCODER_CONFIGS)
+        force_encode:  re-encode embeddings even if cached .npy files exist
+
+    Returns:
+        list of result dicts sorted by MAP descending
+    """
+    output_csv = Path(output_csv)
+
+    if corpus is None:
+        corpus = load_corpus(ROOT / "data" / "filtered_pubmed_abstracts.txt")
+    if all_doc_ids is None:
+        all_doc_ids = [doc["id"] for doc in corpus]
+    if train_topics is None:
+        with open(ROOT / "results" / "splits" / "train_queries.json") as f:
+            train_topics = json.load(f)
+    if qrels is None:
+        with open(ROOT / "results" / "qrels.json") as f:
+            qrels = json.load(f)
+
+    print("=" * 75)
+    print("Dense Encoder Comparison — exact cosine similarity on train set")
+    print(f"Train topics: {len(train_topics)}  |  Corpus: {len(corpus)} docs")
+    print("=" * 75)
+
+    results = run_encoder_comparison(
+        corpus, train_topics, qrels, all_doc_ids,
+        encoder_keys=encoder_keys,
+        force_encode=force_encode,
+    )
+    save_results(results, output_csv)
+    return results
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
     parser = argparse.ArgumentParser(description="Compare dense encoders on train set")
-    parser.add_argument("--force",    action="store_true", help="Re-run even if CSV exists")
     parser.add_argument("--show",     action="store_true", help="Load and print existing CSV")
     parser.add_argument("--reenc",    action="store_true", help="Force re-encode embeddings")
     parser.add_argument(
@@ -393,28 +446,7 @@ if __name__ == "__main__":
             print(f"No results file at {OUTPUT_CSV}. Run without --show first.")
         sys.exit(0)
 
-    if OUTPUT_CSV.exists() and not args.force:
-        print(f"Results already exist at {OUTPUT_CSV}.")
-        print("Use --force to re-run, or --show to display existing results.")
-        load_and_print_results(OUTPUT_CSV)
-        sys.exit(0)
-
-    with open(ROOT / "results" / "splits" / "train_queries.json") as f:
-        train_topics = json.load(f)
-    with open(ROOT / "results" / "qrels.json") as f:
-        qrels = json.load(f)
-
-    corpus = load_corpus(ROOT / "data" / "filtered_pubmed_abstracts.txt")
-    all_doc_ids = [doc["id"] for doc in corpus]
-
-    print("=" * 75)
-    print("Dense Encoder Comparison — exact cosine similarity on train set")
-    print(f"Train topics: {len(train_topics)}  |  Corpus: {len(corpus)} docs")
-    print("=" * 75)
-
-    results = run_encoder_comparison(
-        corpus, train_topics, qrels, all_doc_ids,
+    run_encoder_comparison_and_save(
         encoder_keys=args.encoders,
         force_encode=args.reenc,
     )
-    save_results(results, OUTPUT_CSV)

@@ -1,74 +1,47 @@
 import json
 from pathlib import Path
+from collections import Counter
 
 from src.data.loader import load_corpus
 
 
-# Graded relevance mapping for evidence_relation values.
-# Confirmed from actual data distribution: supporting(10240), neutral(1412),
-# not relevant(2201), contradicting(275), invalid citation(635).
-# Scale: 0-2 where 2=strong evidence, 1=weak/neutral, 0=not relevant.
-GRADED_SCORE = {
+# Default graded relevance mapping for local testing
+_DEFAULT_GRADED_SCORE = {
     "supporting":       2,  # cited as clear evidence support
     "neutral":          1,  # mentioned but neither supports nor contradicts
     "not relevant":     0,
     "contradicting":    0,
     "invalid citation": 0,
 }
+# Binary view = graded filtered at this threshold.
+# score >= 2 means "supporting only" -- only strong evidence counts as relevant.
+_DEFAULT_BINARY_THRESHOLD = 2
 
-# Precision threshold: score >= BINARY_THRESHOLD counts as "relevant" for P@k.
-# Using 1 (i.e., at least neutral) to match the intent of graded relevance.
-BINARY_THRESHOLD = 1
+# Default paths relative to project root for local testing 
+_ROOT = Path(__file__).resolve().parents[2]
 
 
-# Build binary qrels from biogen_2024_submissions.json.
-# Any PMID cited with evidence_relation == "supporting" in any system's answer for a topic -> relevant.
-# If corpus_pmids is provided, PMIDs not in the corpus are silently skipped (they can never be retrieved).
-def build_qrels(submissions_path: str | Path, corpus_pmids: set | None = None) -> dict:
+def build_qrels_graded(
+    submissions_path: str | Path,
+    corpus_pmids: set | None = None,
+    graded_score: dict | None = None,
+) -> dict:
+    """
+    Build graded qrels from biogen_2024_submissions.json.
+    For each (topic, PMID) pair: 
+        - score = MAX graded score across all citations/systems.
+        - Max wins: one strong citation beats many weak ones.
+    Supporting -> 2, neutral -> 1, others -> 0
+    Only stores PMIDs with score >= 1 (0-score = irrelevant; standard IR practice:
+        - not listed in qrels = assumed non-relevant for trec_eval / ranx).
+    """
+    if graded_score is None:
+        graded_score = _DEFAULT_GRADED_SCORE
+
     with open(submissions_path, encoding="utf-8") as f:
         submissions = json.load(f)
 
-    skipped_oor = []  # out-of-range PMIDs we drop
-    qrels = {}
-    for entry in submissions:
-        qid = entry["question_id"]
-        relevant_pmids = set()
-
-        for system_answer in entry["machine_generated_answers"].values():
-            for sentence in system_answer.get("answer_sentences", []):
-                citations = sentence.get("citation_assessment")
-                if not citations:
-                    continue
-                for citation in citations:
-                    if citation.get("evidence_relation") == "supporting":
-                        pmid = citation["cited_pmid"]
-                        if corpus_pmids is not None and pmid not in corpus_pmids:
-                            skipped_oor.append((qid, pmid))
-                            continue
-                        relevant_pmids.add(pmid)
-
-        # only include topics that have at least one relevant doc
-        if relevant_pmids:
-            qrels[qid] = {pmid: 1 for pmid in relevant_pmids}
-
-    if skipped_oor:
-        print(f"  Note: {len(skipped_oor)} qrel PMID(s) not in corpus — skipped (cannot be retrieved):")
-        for qid, pmid in skipped_oor:
-            print(f"    topic {qid} -> PMID {pmid}")
-
-    return qrels
-
-
-# Build graded qrels from biogen_2024_submissions.json.
-# For each (topic, PMID) pair, the score is the MAX graded score seen across all citations.
-# - supporting -> 2, neutral -> 1, others -> 0
-# Takes the max so that one strong citation wins over multiple weak ones.
-# Only stores PMIDs with score >= 1 (filtering out purely irrelevant citations).
-def build_qrels_graded(submissions_path: str | Path, corpus_pmids: set | None = None) -> dict:
-    with open(submissions_path, encoding="utf-8") as f:
-        submissions = json.load(f)
-
-    skipped_oor = []
+    skipped_oor = []  # just to check PMIDs that are cited but not in corpus
     qrels = {}
 
     for entry in submissions:
@@ -82,16 +55,15 @@ def build_qrels_graded(submissions_path: str | Path, corpus_pmids: set | None = 
                 if not citations:
                     continue
                 for citation in citations:
-                    rel = citation.get("evidence_relation", "")
+                    rel  = citation.get("evidence_relation", "")
                     pmid = citation["cited_pmid"]
 
                     if corpus_pmids is not None and pmid not in corpus_pmids:
                         skipped_oor.append((qid, pmid))
                         continue
 
-                    # get numeric score; unknown relations default to 0
-                    score = GRADED_SCORE.get(rel, 0)
-                    # keep the highest score seen for this PMID
+                    # keep highest score seen for this PMID
+                    score = graded_score.get(rel, 0)
                     if score > pmid_scores.get(pmid, 0):
                         pmid_scores[pmid] = score
 
@@ -101,15 +73,35 @@ def build_qrels_graded(submissions_path: str | Path, corpus_pmids: set | None = 
             qrels[qid] = graded_pmids
 
     if skipped_oor:
-        # deduplicate before printing — same PMID can appear many times across systems
+        # deduplicate — same PMID can appear many times across systems
         unique_oor = list(dict.fromkeys(skipped_oor))
         print(f"  Note: {len(unique_oor)} unique (topic, PMID) pairs not in corpus — skipped:")
-        for qid, pmid in unique_oor[:5]:  # only show first 5 to keep output clean
+        for qid, pmid in unique_oor[:5]:  # first 5 only
             print(f"    topic {qid} -> PMID {pmid}")
         if len(unique_oor) > 5:
             print(f"    ... and {len(unique_oor) - 5} more")
 
     return qrels
+
+
+# Binary qrels derived from graded: just filter score >= binary_threshold.
+def build_qrels(
+    submissions_path: str | Path,
+    corpus_pmids: set | None = None,
+    graded_score: dict | None = None,
+    binary_threshold: int = _DEFAULT_BINARY_THRESHOLD,
+) -> dict:
+    graded = build_qrels_graded(
+        submissions_path,
+        corpus_pmids=corpus_pmids,
+        graded_score=graded_score,
+    )
+    return {
+        qid: {pmid: 1 for pmid, s in docs.items() if s >= binary_threshold}
+        for qid, docs in graded.items()
+        if any(s >= binary_threshold for s in docs.values())
+    }
+
 
 
 # Save qrels dict to disk as JSON.
@@ -121,71 +113,123 @@ def save_qrels(qrels: dict, output_path: str | Path) -> None:
     print(f"qrels saved to {output_path}  ({len(qrels)} topics)")
 
 
-if __name__ == "__main__":
-    root = Path(__file__).resolve().parents[2]
-    submissions_path = root / "data" / "biogen_2024_submissions.json"
-    corpus_path      = root / "data" / "filtered_pubmed_abstracts.txt"
-    output_binary    = root / "results" / "qrels.json"
-    output_graded    = root / "results" / "qrels_graded.json"
+# Print a human-readable summary of the built qrels.
+# Shows raw citation distribution, score breakdown, per-topic stats, sample topic.
+def print_qrels_summary(
+    qrels_graded: dict,
+    qrels_binary: dict,
+    submissions_path: str | Path,
+    binary_threshold: int = _DEFAULT_BINARY_THRESHOLD,
+) -> None:
+    # -- raw citation distribution (all systems/topics, before corpus filter) --
+    rel_counter: Counter = Counter()
+    with open(submissions_path, encoding="utf-8") as f:
+        submissions = json.load(f)
+    for entry in submissions:
+        for sys_ans in entry["machine_generated_answers"].values():
+            for sent in sys_ans.get("answer_sentences", []):
+                for cit in sent.get("citation_assessment") or []:
+                    rel_counter[cit.get("evidence_relation", "unknown")] += 1
+    total_cit = sum(rel_counter.values())
+
+    print(f"\n{'='*60}")
+    print("Total citations (all systems, all topics)")
+    print(f"{'='*60}")
+    for rel, cnt in rel_counter.most_common():
+        print(f"  {rel:<25} : {cnt:>6}  ({cnt/total_cit*100:.1f}%)")
+    print(f"  {'TOTAL':<25} : {total_cit:>6}")
+
+    # -- graded score distribution --
+    score_cnt: Counter = Counter()
+    for docs in qrels_graded.values():
+        for s in docs.values():
+            score_cnt[s] += 1
+    total_graded = sum(score_cnt.values())
+    total_binary = sum(len(v) for v in qrels_binary.values())
+
+    print(f"\n{'='*60}")
+    print("Qrels score distribution (corpus-filtered, unique per topic)")
+    print(f"{'='*60}")
+    print(f"  score=2 (supporting)  : {score_cnt[2]:>5}  ({score_cnt[2]/total_graded*100:.1f}%)")
+    print(f"  score=1 (neutral)     : {score_cnt[1]:>5}  ({score_cnt[1]/total_graded*100:.1f}%)")
+    print(f"  total graded PMIDs    : {total_graded:>5}")
+    print(f"  total binary PMIDs    : {total_binary:>5}  (score >= {binary_threshold} = supporting only)")
+
+    # -- per-topic stats --
+    per_s2 = [sum(1 for s in d.values() if s == 2) for d in qrels_graded.values()]
+    per_s1 = [sum(1 for s in d.values() if s == 1) for d in qrels_graded.values()]
+    no_neutral = sum(1 for x in per_s1 if x == 0)
+
+    print(f"\n{'='*60}")
+    print("Per-topic statistics")
+    print(f"{'='*60}")
+    print(f"  avg relevant/topic (binary)    : {total_binary/len(qrels_binary):.1f}")
+    print(f"  supporting (score=2)/topic      : avg={sum(per_s2)/len(per_s2):.1f}  min={min(per_s2)}  max={max(per_s2)}")
+    print(f"  neutral    (score=1)/topic      : avg={sum(per_s1)/len(per_s1):.1f}  min={min(per_s1)}  max={max(per_s1)}")
+    print(f"  topics with no neutral entries  : {no_neutral} / {len(qrels_graded)}")
+
+    # -- sample topic (one with both score=2 and score=1 entries) --
+    sample_qid = next(
+        (qid for qid, docs in qrels_graded.items()
+         if any(s == 1 for s in docs.values()) and any(s == 2 for s in docs.values())),
+        next(iter(qrels_graded))
+    )
+    sample = qrels_graded[sample_qid]
+    s2_pmids = [p for p, s in sample.items() if s == 2]
+    s1_pmids = [p for p, s in sample.items() if s == 1]
+
+    print(f"\n{'='*60}")
+    print(f"Sample topic: {sample_qid}  ({len(sample)} graded PMIDs total)")
+    print(f"{'='*60}")
+    print(f"  score=2 (supporting): {s2_pmids[:4]}{'...' if len(s2_pmids) > 4 else ''}  [{len(s2_pmids)} total]")
+    print(f"  score=1 (neutral)   : {s1_pmids[:4]}{'...' if len(s1_pmids) > 4 else ''}  [{len(s1_pmids)} total]")
+    print(f"  (score=0 not stored — trec_eval assumes unlisted = non-relevant)")
+
+
+
+
+def run_qrels_builder(
+    submissions_path: str | Path = _ROOT / "data" / "biogen_2024_submissions.json",
+    corpus_path:      str | Path = _ROOT / "data" / "filtered_pubmed_abstracts.txt",
+    output_binary:    str | Path = _ROOT / "results" / "qrels.json",
+    output_graded:    str | Path = _ROOT / "results" / "qrels_graded.json",
+    graded_score:     dict | None = None,
+    binary_threshold: int = _DEFAULT_BINARY_THRESHOLD,
+) -> tuple[dict, dict]:
+    """
+    Orchestrates functions above: 
+        - Build and save both binary and graded qrels. Always overwrites existing files.
+    """
+    output_binary = Path(output_binary)
+    output_graded = Path(output_graded)
 
     print("Loading corpus for PMID filter...")
     corpus = load_corpus(corpus_path)
     corpus_pmids = {doc["id"] for doc in corpus}
     print(f"  Corpus size: {len(corpus_pmids)} PMIDs")
 
-    # ── Binary qrels ──────────────────────────────────────────────────────
-    print("\nBuilding binary qrels...")
-    qrels = build_qrels(submissions_path, corpus_pmids=corpus_pmids)
-    print(f"  Topics with relevant docs : {len(qrels)}")
-    all_relevant_counts = [len(v) for v in qrels.values()]
-    avg = sum(all_relevant_counts) / len(all_relevant_counts)
-    print(f"  Avg relevant docs/topic   : {avg:.1f}")
-    print(f"  Min / Max                 : {min(all_relevant_counts)} / {max(all_relevant_counts)}")
+    # single parse: graded is the source of truth
+    print("\nBuilding graded qrels (single parse)...")
+    qrels_graded = build_qrels_graded(
+        submissions_path,
+        corpus_pmids=corpus_pmids,
+        graded_score=graded_score,
+    )
+    save_qrels(qrels_graded, output_graded)
 
-    # spot-check: topic 116 should have some PMIDs
-    sample_qid = "116"
-    assert sample_qid in qrels, f"Topic {sample_qid} missing from qrels"
-    print(f"  Topic {sample_qid} relevant PMIDs (first 5): {list(qrels[sample_qid].keys())[:5]}")
-
-    # verify all qrel PMIDs are in corpus
-    for qid, pmid_dict in qrels.items():
-        for pmid in pmid_dict:
-            assert pmid in corpus_pmids, f"PMID {pmid} in topic {qid} not in corpus (filter failed)"
-    print("  All binary qrel PMIDs verified in corpus [OK]")
+    # derive binary from graded — no second file read needed
+    print(f"\nDeriving binary qrels (score >= {binary_threshold})...")
+    qrels = {
+        qid: {pmid: 1 for pmid, s in docs.items() if s >= binary_threshold}
+        for qid, docs in qrels_graded.items()
+        if any(s >= binary_threshold for s in docs.values())
+    }
     save_qrels(qrels, output_binary)
 
-    # ── Graded qrels ──────────────────────────────────────────────────────
-    print("\nBuilding graded qrels...")
-    qrels_graded = build_qrels_graded(submissions_path, corpus_pmids=corpus_pmids)
-    print(f"  Topics with graded docs   : {len(qrels_graded)}")
+    print_qrels_summary(qrels_graded, qrels, submissions_path, binary_threshold=binary_threshold)
 
-    # score distribution across all (topic, PMID) pairs
-    score_counts = {0: 0, 1: 0, 2: 0}
-    for qid, pmid_dict in qrels_graded.items():
-        for pmid, score in pmid_dict.items():
-            score_counts[score] = score_counts.get(score, 0) + 1
-    total_pairs = sum(score_counts.values())
-    print(f"  Total graded pairs        : {total_pairs}")
-    print(f"  Score=2 (supporting)      : {score_counts.get(2, 0)}")
-    print(f"  Score=1 (neutral)         : {score_counts.get(1, 0)}")
+    return qrels, qrels_graded
 
-    graded_counts = [len(v) for v in qrels_graded.values()]
-    print(f"  Avg scored docs/topic     : {sum(graded_counts)/len(graded_counts):.1f}")
-    print(f"  Min / Max                 : {min(graded_counts)} / {max(graded_counts)}")
 
-    # graded set should be >= binary set (neutral adds more entries)
-    assert len(qrels_graded) >= len(qrels), "Graded qrels should have >= topics as binary"
-    print(f"  Graded topics >= binary topics [OK]  ({len(qrels_graded)} >= {len(qrels)})")
-
-    # every binary relevant PMID should be in graded with score==2
-    for qid, pmid_dict in qrels.items():
-        if qid in qrels_graded:
-            for pmid in pmid_dict:
-                if pmid in qrels_graded[qid]:
-                    assert qrels_graded[qid][pmid] == 2, (
-                        f"Topic {qid} PMID {pmid}: should be score=2 in graded (was supporting in binary)"
-                    )
-    print("  Binary PMIDs all have score=2 in graded [OK]")
-
-    save_qrels(qrels_graded, output_graded)
-    print("\nAll qrels_builder tests passed.")
+if __name__ == "__main__":
+    run_qrels_builder()

@@ -20,9 +20,6 @@ import sys
 from dotenv import load_dotenv
 from opensearchpy import OpenSearch
 
-# Expected document count — used to verify the index is fully populated.
-EXPECTED_DOC_COUNT = 4194
-
 
 def get_client() -> OpenSearch:
     """
@@ -136,20 +133,21 @@ def check_health(client: OpenSearch) -> None:
             ) from exc
 
 
-def check_index(client: OpenSearch, index_name: str) -> bool:
+def check_index(client: OpenSearch, index_name: str, expected_count: int = 4194) -> bool:
     """
     Check whether the target index exists and is fully populated.
 
     An index is considered fully populated when its document count equals
-    EXPECTED_DOC_COUNT (4194 PubMed abstracts).
+    expected_count (default: 4194 PubMed abstracts).
 
     Args:
-        client:     A connected OpenSearch client instance.
-        index_name: Name of the index to check.
+        client:         A connected OpenSearch client instance.
+        index_name:     Name of the index to check.
+        expected_count: Expected number of documents in the index.
 
     Returns:
-        True  — index exists AND doc count == EXPECTED_DOC_COUNT
-        False — index does not exist OR doc count != EXPECTED_DOC_COUNT
+        True  — index exists AND doc count == expected_count
+        False — index does not exist OR doc count != expected_count
     """
     if not client.indices.exists(index=index_name):
         print(f"[index] '{index_name}' does not exist — not yet created (that's OK at this stage).")
@@ -158,13 +156,13 @@ def check_index(client: OpenSearch, index_name: str) -> bool:
     count_response = client.count(index=index_name)
     count = count_response.get("count", 0)
 
-    if count == EXPECTED_DOC_COUNT:
+    if count == expected_count:
         print(f"[index] '{index_name}'  docs={count}  [ok] fully populated")
         return True
     else:
         print(
             f"[index] '{index_name}'  docs={count}  "
-            f"(expected {EXPECTED_DOC_COUNT}) — partial or empty index"
+            f"(expected {expected_count}) — partial or empty index"
         )
         return False
 

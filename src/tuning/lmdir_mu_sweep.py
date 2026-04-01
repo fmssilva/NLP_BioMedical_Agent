@@ -16,7 +16,6 @@ This script:
 
 Usage:
     python -m src.tuning.lmdir_mu_sweep           # run sweep, save CSV
-    python -m src.tuning.lmdir_mu_sweep --force   # re-run even if CSV exists
     python -m src.tuning.lmdir_mu_sweep --show    # load and print existing CSV
 
 Notes:
@@ -326,11 +325,74 @@ def load_and_print_results(path: Path) -> None:
 # Entry point
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Convenience entry-point callable from notebooks or other scripts
+# ---------------------------------------------------------------------------
+
+def run_lmdir_sweep_and_save(
+    client=None,
+    index_name: str = "",
+    train_topics: list[dict] | None = None,
+    qrels: dict | None = None,
+    all_doc_ids: list[str] | None = None,
+    corpus: list[dict] | None = None,
+    output_csv: str | Path = OUTPUT_CSV,
+    n_folds: int = N_FOLDS,
+) -> list[dict]:
+    """
+    Run the LM-Dir μ sweep and save results to CSV. Always overwrites existing CSV.
+
+    When called from a notebook, pass client / index_name / data objects that
+    are already loaded. When called via __main__, they are loaded from defaults.
+
+    Args:
+        client:       OpenSearch client (required)
+        index_name:   index to query (required)
+        train_topics: list of train topic dicts (loaded from splits if None)
+        qrels:        binary qrels dict (loaded from disk if None)
+        all_doc_ids:  list of all corpus PMIDs (loaded from corpus if None)
+        corpus:       list of corpus dicts, needed for index update (loaded if None)
+        output_csv:   path to write CSV results
+        n_folds:      number of CV folds
+
+    Returns:
+        list of result dicts sorted by mean_map descending
+    """
+    output_csv = Path(output_csv)
+
+    # load defaults from disk when not supplied
+    if train_topics is None:
+        with open(ROOT / "results" / "splits" / "train_queries.json") as f:
+            train_topics = json.load(f)
+    if qrels is None:
+        with open(ROOT / "results" / "qrels.json") as f:
+            qrels = json.load(f)
+    if corpus is None:
+        corpus = load_corpus(ROOT / "data" / "filtered_pubmed_abstracts.txt")
+    if all_doc_ids is None:
+        all_doc_ids = [doc["id"] for doc in corpus]
+    if client is None:
+        client = get_client()
+    if not index_name:
+        index_name = os.getenv("OPENSEARCH_INDEX", "")
+    assert index_name, "OPENSEARCH_INDEX not set"
+
+    print("=" * 72)
+    print("LM-Dirichlet μ Sweep — 5-fold CV on train set")
+    print(f"Index: {index_name}  |  Train topics: {len(train_topics)}  |  Folds: {n_folds}")
+    print("=" * 72)
+
+    results = run_lmdir_sweep(
+        client, index_name, train_topics, qrels, all_doc_ids, corpus, n_folds=n_folds
+    )
+    save_results(results, output_csv)
+    return results
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
     parser = argparse.ArgumentParser(description="Sweep LM-Dirichlet μ on train set")
-    parser.add_argument("--force", action="store_true", help="Re-run even if CSV exists")
     parser.add_argument("--show",  action="store_true", help="Load and print existing CSV")
     parser.add_argument("--folds", type=int, default=N_FOLDS, help="Number of CV folds")
     args = parser.parse_args()
@@ -339,34 +401,7 @@ if __name__ == "__main__":
         if OUTPUT_CSV.exists():
             load_and_print_results(OUTPUT_CSV)
         else:
-            print(f"No results file found at {OUTPUT_CSV}. Run without --show first.")
+            print(f"No results file found at {OUTPUT_CSV}. Run the sweep first.")
         sys.exit(0)
 
-    if OUTPUT_CSV.exists() and not args.force:
-        print(f"Results already exist at {OUTPUT_CSV}.")
-        print("Use --force to re-run, or --show to display existing results.")
-        load_and_print_results(OUTPUT_CSV)
-        sys.exit(0)
-
-    # Load data
-    with open(ROOT / "results" / "splits" / "train_queries.json") as f:
-        train_topics = json.load(f)
-    with open(ROOT / "results" / "qrels.json") as f:
-        qrels = json.load(f)
-
-    corpus = load_corpus(ROOT / "data" / "filtered_pubmed_abstracts.txt")
-    all_doc_ids = [doc["id"] for doc in corpus]
-
-    client = get_client()
-    index_name = os.getenv("OPENSEARCH_INDEX", "")
-    assert index_name, "OPENSEARCH_INDEX not set in .env"
-
-    print("=" * 72)
-    print("LM-Dirichlet μ Sweep — 5-fold CV on train set")
-    print(f"Index: {index_name}  |  Train topics: {len(train_topics)}  |  Folds: {args.folds}")
-    print("=" * 72)
-
-    results = run_lmdir_sweep(
-        client, index_name, train_topics, qrels, all_doc_ids, corpus, n_folds=args.folds
-    )
-    save_results(results, OUTPUT_CSV)
+    run_lmdir_sweep_and_save(n_folds=args.folds)

@@ -114,10 +114,24 @@ See here the index for the report sections that we should follow and fill along 
 - **Out-of-corpus PMIDs:** 1 PMID (`37711029`, topic 141) is absent from the filtered corpus → excluded from both qrels files with a logged warning. 11 additional PMIDs appear only in neutral citations and are also out-of-corpus (excluded from graded qrels).
 - **Implementation:** `src/data/qrels_builder.py`.
 
+#### Can we use a single qrels file?
+
+> *Confirmed: 2026-04-01 | Source: src/data/__qrels_builder_test.py, test_binary_derivable_from_graded*
+
+- **Answer: yes, technically.** graded qrels is a strict superset of binary. `graded[score>=2]` reconstructs binary exactly (verified for all 65 topics, 2999 pairs).
+- **Why we keep two files on disk:** explicitness. Loading `qrels.json` vs `qrels_graded.json` makes the consumer's intent clear. Deriving binary from graded at load time adds a filter step that every consumer must remember.
+- **Confirmed by data:** `graded[score>=2] == binary` for 100% of (topic, PMID) pairs. Only score values in graded are {1, 2} — no ambiguity.
+- **Trade-off:** one file = simpler codebase; two files = clearer intent at each call site. We keep two files.
+- **Tests:** `src/data/__qrels_builder_test.py` — 11 tests including `test_binary_derivable_from_graded` and `test_rebuild_*` to verify determinism. All pass as of 2026-04-01.
+
 ### Index Design
 > *Last updated: 2026-03-30 | Source: src/indexing/index_builder.py, tests confirmed on api.novasearch.org*
 
 - **OpenSearch server:** shared course instance at `api.novasearch.org:443`, `url_prefix='opensearch_v3'`, SSL on, no cert/hostname verification (Lab01 pattern exactly).
+- **Credentials handling (local vs Colab):**
+  - Local: `.env` file at project root (gitignored). Copy `.env.example` → `.env` and fill credentials.
+  - Colab: Google Colab Secrets (key icon in sidebar). Add `OPENSEARCH_USER`, `OPENSEARCH_PASS`, `OPENSEARCH_INDEX` — notebook reads them via `google.colab.userdata` and injects as env vars. Same code path as local — no `.env` needed, no credentials in the notebook.
+  - Best practice: never commit credentials. `get_client()` reads from `os.getenv()` — works identically for both local `.env` and Colab Secrets.
 - **One index, multiple similarity fields** — not one index per strategy. Confirmed by professor and plan. Index name = username (`usernlp03`).
 - **Shards:** 4, replicas: 0, `refresh_interval: -1` (disabled during indexing for speed, re-enable after bulk load).
 - **3 custom similarity plugins registered at index creation:**

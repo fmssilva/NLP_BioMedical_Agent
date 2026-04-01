@@ -70,6 +70,37 @@ Status: All items addressed.
 
 ---
 
+## Session 3 (2026-04-01)
+
+## 15. Colab Setup & Credentials -- DONE
+- Setup cell updated: local (.env walkup) vs Colab (google.colab.userdata Secrets).
+- Colab: add OPENSEARCH_USER / OPENSEARCH_PASS / OPENSEARCH_INDEX in Secrets panel.
+- Both paths inject into os.environ -> opensearch_client.py picks them up identically.
+- Added setup explanation markdown cell before the code cell.
+
+## 16. Can We Use a Single Graded Qrels File? -- ANALYSED
+- Answer: technically yes. graded[score>=2] == binary for 100% of pairs (verified).
+- Decision: keep two files on disk for clarity. One for binary (MAP/MRR/P@k/R@k), one for graded (NDCG).
+- Both files are derived from the same raw submissions; graded is strict superset.
+- Data confirmed: 2999 binary pairs, 3217 graded pairs (218 extra neutral at score=1).
+- Documented in notebook §1.2 markdown, report qrels section, and qrels_builder_test.
+
+## 17. Qrels Builder Tests -- DONE
+- Created src/data/__qrels_builder_test.py with 11 comprehensive tests.
+- Tests cover: structure, score values, binary/graded consistency, corpus membership,
+  score distribution, no empty topics, full 65-topic coverage,
+  synthetic unit test (no file I/O), rebuild determinism.
+- All 11 tests pass as of 2026-04-01.
+- Run: python -m src.data.__qrels_builder_test
+
+## 18. Results Files in Colab -- CONFIRMED
+- All notebook cells use ROOT-relative paths (ROOT / "results" / ...).
+- results/ is NOT gitignored -> pre-computed run files available in Colab after git clone.
+- embeddings/ IS gitignored -> Colab re-encodes (~3 min, handled by if EMB_PATH.exists() guard).
+- PHASE1_DIR, TUNING_DIR, FIGS_DIR, EMB_PATH all ROOT-based.
+
+---
+
 ## Summary of Changes
 
 ### Notebook (tasks/phase1/phase1_search.ipynb)
@@ -82,8 +113,11 @@ Status: All items addressed.
 - Updated section 12 heatmap: VALID_K1 filter
 - Added section 15 subsection headers
 - Split section 18 into 18.1-18.8 subsections
+- [Session 3] Updated setup cell: Colab Secrets + local .env walkup
+- [Session 3] Added §1.1 markdown with Colab vs local setup table
 
 ### Source Code (src/)
 - src/tuning/bm25_param_sweep.py: removed k1=1.8/2.0 from grid
 - src/evaluation/final_eval.py: added relationship docstring
 - results/phase1/tuning/bm25_param_sweep.csv: cleaned to 20 valid rows
+- [Session 3] src/data/__qrels_builder_test.py: 11 qrels tests (all pass)

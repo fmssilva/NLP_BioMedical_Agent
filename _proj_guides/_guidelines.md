@@ -3,8 +3,8 @@
 		C:\Users\franc\Desktop\NLP_Biomedical_Agent\_proj_guides\PROJECT_PLAN.md			
 					
 		and also the project guides: 			
-			C:\Users\franc\Desktop\NLP_Biomedical_Agent\_proj_guides\files_as_md\proj_guide_NLPS_-_TREC_2025_BioGen.md		
-			C:\Users\franc\Desktop\NLP_Biomedical_Agent\_proj_guides\files_as_md\prof_guide_professor_notes.md		
+			C:\Users\franc\Desktop\NLP_Biomedical_Agent\_proj_guides\prof_guide_professor_notes.md		
+			C:\Users\franc\Desktop\NLP_Biomedical_Agent\_proj_guides\proj_guide_NLPS_-_TREC_2025_BioGen.md		
 		and all relevant existing files. Understand the full project structure before touching any code. Think as a software architect first, not a coding agent.			
 					
 	Code Quality				
@@ -19,7 +19,7 @@
 					
 	Comments & Logs				
 		Short comment above each function (as concise as possible).			
-		Inline comments during the code itself to explain the code. This is a teaching project so i want to have comments to explain all important details of each block of code we do so a reader can understand it easy, BUT WRITTEN AS CONCISE AS POSSIBLE, AND WRITTEN AS CASUAL AND NATURAL LANGUAGE AS POSSIBLE, LIKE IF IT WAS ONE DEV TALKING TO ANOTHER DEV. SO CONCISE BULLET POINTS, NO FORMAL PROSE. NO EMOJIS ANYWHERE!!!			
+		Inline comments during the code itself to explain the code. This is a teaching project so i want to have comments to explain all important details of each block of code we do so a reader can understand it easy, BUT WRITTEN AS CONCISE AS POSSIBLE, AND WRITTEN AS CASUAL AND NATURAL LANGUAGE AS POSSIBLE, LIKE IF IT WAS ONE DEV TALKING TO ANOTHER DEV. SO CONCISE BULLET POINTS, NO FORMAL PROSE. NO EMOJIS ANYWHERE!!! AND NO NON-ASCII SYMBOLS (example ✓ → [ok], → → -> or >>, etc)			
 		Logs: only what's needed to pinpoint errors. Single-line, concise, no emojis (terminal encoding issues).			
 					
 	File & Folder Structure				
@@ -33,21 +33,24 @@
 		No utils.py dumping ground with 50 mixed functions. If a file starts doing too many unrelated things, split it.			
 					
 	Testing During Development				
-		Each file has its own if __name__ == "__main__" block with tests. Run everything locally on CPU with small data samples first. We will only move to Colab+GPU once local tests pass.			
-		Good tests to include in DL projects:			
-			Data tests: shapes correct, labels encoded right, no NaNs, class distribution matches CSV		
-			Transform tests: output tensor shape, value range [0,1] or normalized		
-			Model tests: forward pass with dummy input gives expected output shape		
-			Training tests: loss decreases after 1-2 steps on a tiny batch (sanity check)		
-			Submission tests: output CSV has correct number of rows, valid class names, correct format		
-		And for NLP project think good tests like: 			
-			Connection tests:   OpenSearch reachable, index exists, doc count matches expected 		
-			Data tests:         topics load correctly, odd/even split is clean, ground truth relevance values in expected scale		
-			Retrieval tests:    each strategy returns results, no empty hits, scores decrease monotonically down the ranked list		
-			Evaluation tests:   ranx run file format valid, graded relevance passed correctly, P@10 + R@100 + nDCG all computed without errors		
-			Generation tests:   answer ≤250 words, ≤3 PMIDs per sentence, all cited PMIDs exist in corpus		
-			Agent tests:        planner returns ≥1 sub-topic, ReAct loop terminates, final report has citations		
-		Before you run the tests, first, to confirm the code is well implemented, run the tests with a small sample of data. Only when you confirm the code is all 100% well done and correct and well tested, then yes you run the tests with the full data. 			
+		Along the code add some asserts to confirm the main possible sources of errors. example assert (some_arg is not Null), f"{some_arg} is Null"			
+		Then write local tests for each function and file. 			
+			For that, if we need only a small number of tests, we can put them directly in the file, in the  if __name__ == "__main__" block. If it is good to implement a good number of tests so we can create a separate file for that __xxx_test.py		
+			Good tests to include (adapt this to the kind of project we are building, example pure DL vs NLP, etc.):		
+				Connection tests:   if we are using some external thing like OpenSearch (reachable, index exists, doc count matches expected...)	
+				Data tests: shapes correct, labels encoded right, no NaNs, class distribution matches CSV, correct splits, correct qrels from groudtruth... 	
+				Transform tests: output tensor shape, value range [0,1] or normalized	
+				Model tests: forward pass with dummy input gives expected output shape	
+				Training tests: loss decreases after 1-2 steps on a tiny batch (sanity check)	
+				Submission tests: output CSV has correct number of rows, valid class names, correct format	
+				Retrieval tests:    each strategy returns results, no empty hits, scores decrease monotonically down the ranked list	
+				Evaluation tests:   ranx run file format valid, graded relevance passed correctly, P@10 + R@100 + nDCG all computed without errors	
+				Generation tests:   answer ≤250 words, ≤3 PMIDs per sentence, all cited PMIDs exist in corpus	
+				Agent tests:        planner returns ≥1 sub-topic, ReAct loop terminates, final report has citations	
+				Plots tests: confirm that all the plots render correctly, with correct values and correct visuals and desgin	
+			How to run the tests:		
+				First run the tests with a small sample of data, just to confirm all the code is correct, no errors, all the plots render, all the params match, etc. that we don't have 	
+				When we have 100% sure all tests pass in terms of code, so we run them with the minimum amount of data necessary to actually tests the things we want. Example some 2 or 3 epochs to confirm our training works well with only some 5-10 samples, etc. Or if needed with the full data example if we are actually analysing data statistics, etc. 	
 					
 	Before Implementing Any Task				
 		Read all relevant existing files — avoid duplication.			
