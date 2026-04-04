@@ -1,0 +1,110 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%   SECTION 3a — Evaluation Setup         %%%%
+%%%%   Datasets, Metrics & Protocols         %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Evaluation}
+\label{sec:eval}
+
+\subsection{Experimental Setup: Datasets, Metrics and Protocols}
+\label{sec:eval_setup}
+
+% ── 3a.1  DATASET ─────────────────────────────────────────────────────────────
+\subsubsection{Dataset}
+\begin{itemize}
+  \item \textbf{Collection:} TREC BioGen 2024 — 4{,}194 PubMed abstracts,
+        65 biomedical topics (IDs 116--180).
+  \item \textbf{Topic fields:} \texttt{topic} (keyword), \texttt{question}
+        (natural language), \texttt{narrative} (retrieval context).
+  \item \textbf{Relevance source:} citation assessments from automated BioGen
+        2024 system submissions — \emph{not} human-assessed.
+  \item \textbf{Binary qrels:} supporting=1, all others=0.
+        Mean 46.1 relevant docs/topic (range 8--88).
+  \item \textbf{Graded qrels:} supporting=2, neutral=1, others=0.
+        Mean 49.5 relevant docs/topic.
+  \item \textbf{Important caveat:} the high mean relevant-doc count (46.1)
+        is $3\text{--}15\times$ above standard TREC tasks.
+        MAP and recall values are not comparable to published IR benchmarks.
+\end{itemize}
+
+% ── 3a.2  SPLIT PROTOCOL ──────────────────────────────────────────────────────
+\subsubsection{Split Protocol}
+\begin{itemize}
+  \item \textbf{Fixed odd/even split} on topic IDs (professor-mandated).
+  \item \textbf{Train:} 32 queries (odd IDs) — hyperparameter tuning only.
+  \item \textbf{Test:} 33 queries (even IDs) — final evaluation, touched once.
+  \item \textbf{Corpus:} shared, never split.
+  \item \textbf{Hyperparameter selection protocol:}
+    \begin{enumerate}
+      \item Query field ablation (BM25 on train) $\to$ lock field.
+      \item LM-JM $\lambda$ sweep on train (5-fold CV) $\to$ lock $\lambda$.
+      \item BM25 $k_1/b$ sweep on train (5-fold CV) $\to$ lock $k_1, b$.
+      \item LM-Dir $\mu$ sweep on train (5-fold CV) $\to$ lock $\mu$.
+      \item Dense encoder comparison on train (exact cosine) $\to$ lock encoder.
+      \item Run all strategies on test set once — no further tuning.
+    \end{enumerate}
+  \item \textbf{5-fold cross-validation} on 32 train queries:
+        $\approx$26 queries train / 6 queries validation per fold.
+        Primary criterion: mean NDCG@100 across folds.
+\end{itemize}
+
+% ── 3a.3  METRICS ─────────────────────────────────────────────────────────────
+\subsubsection{Metrics}
+\begin{itemize}
+  \item All metrics implemented from scratch in \texttt{src/evaluation/metrics.py}
+        (plain Python + NumPy; no external IR library — Lab03 protocol).
+  \item TREC standard: 0-relevant topics excluded from MAP and MRR averages
+        (none in this dataset — all 65 topics have $\geq$1 relevant doc).
+
+  \item \textbf{MAP} (Mean Average Precision, binary qrels):
+    \begin{itemize}
+      \item[--] $\text{AP} = \frac{1}{|\mathcal{R}|}\sum_{k=1}^{n}
+                P(k) \cdot \text{rel}(k)$,
+                where $\mathcal{R}$ = set of relevant docs.
+      \item[--] Measures overall ranking quality across all 100 retrieved docs.
+      \item[--] Sensitive to how many relevant docs are found in top-100.
+    \end{itemize}
+
+  \item \textbf{NDCG@100} (Normalised Discounted Cumulative Gain, graded qrels)
+        — \textbf{primary TREC BioGen metric}:
+    \begin{itemize}
+      \item[--] $\text{DCG} = \sum_{i=1}^{100}
+                \frac{\text{rel}_i}{\log_2(i+2)}$;\quad
+                $\text{NDCG} = \text{DCG}/\text{IDCG}$.
+      \item[--] Uses graded relevance (supporting=2, neutral=1).
+      \item[--] Discounts documents ranked lower — rewards finding supporting
+                evidence early.
+    \end{itemize}
+
+  \item \textbf{MRR} (Mean Reciprocal Rank, binary qrels):
+    \begin{itemize}
+      \item[--] $\text{MRR} = \frac{1}{|Q|}\sum_{q}\frac{1}{\text{rank}_q^{(1)}}$.
+      \item[--] Measures how quickly the first relevant document appears.
+    \end{itemize}
+
+  \item \textbf{P@10} — precision in the top 10 results (binary qrels).
+        Most relevant for clinical use: what a clinician sees on screen.
+
+  \item \textbf{R@100} — recall at rank 100 (binary qrels).
+        Critical for Phase~2: fraction of all relevant docs available as evidence.
+
+  \item \textbf{PR Curves} — 11-point interpolated precision-recall curves,
+        averaged across all test queries (Lab03 pattern).
+
+  \item \textbf{Per-topic AP distribution} — box plots of AP per strategy to
+        assess consistency across topics.
+\end{itemize}
+
+% ── 3a.4  LOCKED CONFIGURATION ────────────────────────────────────────────────
+\subsubsection{Locked Configuration (Phase~1 Final)}
+\begin{itemize}
+  \item \textbf{Query field:} \texttt{topic+question} (topic keyword
+        concatenated with clinical question).
+  \item \textbf{BM25:} $k_1$=1.5, $b$=1.0 — CV NDCG@100=0.8011.
+  \item \textbf{LM Jelinek-Mercer:} $\lambda$=0.7 — CV NDCG@100=0.7769.
+  \item \textbf{LM Dirichlet:} $\mu$=75 (run files); CV winner $\mu$=100
+        ($\Delta$=0.0013, within noise) — CV NDCG@100=0.7723.
+  \item \textbf{Dense encoder:} MedCPT (asymmetric) — CV NDCG@100=0.8296.
+  \item \textbf{Fusion (Phase~2 backbone):} RRF $k$=60, tuned BM25 +
+        MedCPT KNN — test NDCG@100=\textbf{0.8259}.
+\end{itemize}

@@ -1,0 +1,24 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                ABSTRACT                 %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{abstract}
+% Bullet-point plan (will be rewritten as prose for final submission)
+\begin{itemize}
+  \item \textbf{Task:} TREC BioGen 2024 — biomedical question answering with
+        citation grounding over 4{,}194 PubMed abstracts, 65 topics.
+  \item \textbf{Phase~1 (IR pipeline):} five retrieval strategies (BM25,
+        LM-Jelinek-Mercer, LM-Dirichlet, Dense KNN, RRF); disciplined
+        hyperparameter tuning via 5-fold CV on 32 train queries;
+        field ablation, encoder comparison, statistical significance tests.
+  \item \textbf{Best result:} RRF fusion of tuned BM25 and MedCPT KNN
+        — NDCG@100=0.8259, MAP=0.6262, Recall@100=0.9143 on 33 test topics;
+        statistically significant vs.\ BM25 baseline ($p$=0.0004).
+  \item \textbf{Key finding:} domain-specialised dense encoding (MedCPT,
+        trained on PubMed citation graph) is the single most impactful
+        component ($\Delta$NDCG@100=+0.0506 vs.\ general-purpose baseline).
+  \item \textbf{Phases~2--3 (planned):} cross-encoder reranking and
+        LLM-augmented generation (vLLM, MedCPT-Cross-Encoder, LLM-as-judge);
+        then a ReAct agentic loop for multi-step biomedical synthesis.
+\end{itemize}
+\end{abstract}

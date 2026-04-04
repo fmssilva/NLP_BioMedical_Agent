@@ -1,0 +1,62 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%              CONCLUSIONS                %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Conclusions}
+\label{sec:conclusions}
+
+% ── 4a  ACHIEVEMENTS ──────────────────────────────────────────────────────────
+\subsection{Phase 1 Achievements}
+\label{sec:achievements}
+\begin{itemize}
+  \item \textbf{Complete IR pipeline} delivered on schedule (deadline Apr~13):
+        corpus loading, indexing, query building, retrieval, evaluation, and
+        result serialisation — all modular and Colab-compatible.
+  \item \textbf{Five retrieval strategies} implemented and compared:
+        BM25, LM-Jelinek-Mercer, LM-Dirichlet, Dense KNN, and RRF fusion.
+  \item \textbf{Disciplined tuning protocol}: query field ablation first,
+        then 5-fold CV per strategy — test set touched exactly once.
+  \item \textbf{MedCPT encoder} identified as the most impactful single
+        change ($\Delta$NDCG@100=+0.0506 vs msmarco baseline on test set).
+  \item \textbf{Best result:} RRF (BM25 tuned + MedCPT KNN)
+        — NDCG@100=\textbf{0.8259}, MAP=0.6262, R@100=0.9143 on 33 test topics.
+  \item \textbf{Post-hoc analyses} completed: per-topic AP distribution,
+        Jaccard overlap, IDF error analysis, statistical significance tests.
+  \item High Recall@100 (0.9143) ensures a strong evidence pool is available
+        for Phase~2 generation.
+\end{itemize}
+
+% ── 4b  LIMITATIONS ───────────────────────────────────────────────────────────
+\subsection{Limitations}
+\label{sec:limitations}
+\begin{itemize}
+  \item \textbf{Noisy qrels:} relevance judgements derived from automated
+        BioGen submissions (not human-assessed) — systematic biases possible.
+  \item \textbf{Inflated MAP/Recall values:} mean 46.1 relevant docs/topic
+        is $3\text{--}15\times$ above standard TREC collections; figures not
+        comparable to published IR benchmarks.
+  \item \textbf{Small test set:} 33 topics limits statistical power —
+        borderline effects ($p$$\approx$0.05--0.1) may be real but
+        undetectable.
+  \item \textbf{Fixed odd/even split:} no cross-validation on final test;
+        topic difficulty distribution may not balance perfectly.
+  \item \textbf{Out-of-corpus PMIDs:} some relevant documents referenced in
+        qrels are absent from the 4{,}194-abstract corpus — irreducible ceiling.
+  \item \textbf{CPU-only dense encoding:} MedCPT encoding ran on CPU in
+        Colab free tier; GPU would reduce encoding time significantly.
+  \item \textbf{BM25 tuning negligible} ($k_1$=1.5, $b$=1.0): tuned
+        parameters did not generalise to test — only $\Delta$NDCG@100=$-$0.0009
+        on the unseen queries.
+\end{itemize}
+
+\subsection*{Future Work}
+\begin{itemize}
+  \item \textbf{Phase~2:} cross-encoder reranking (MedCPT-Cross-Encoder) then
+        LLM-augmented generation (vLLM); automatic citation grounding;
+        LLM-as-judge evaluation.
+  \item \textbf{Phase~3:} ReAct agentic loop (Planner, Explorer, Aggregator,
+        Report Writer); multi-step reasoning over the retrieval backbone.
+  \item Explore learned sparse retrieval (SPLADE) and late interaction
+        (ColBERT) for higher recall at lower rank cutoffs.
+  \item Obtain human relevance assessments to validate automated qrel quality.
+\end{itemize}

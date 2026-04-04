@@ -1,0 +1,148 @@
+%% =============================================================
+%%  main.tex  —  Root document (formatting + structure only)
+%%
+%%  Folder layout:
+%%    main.tex              <- you are here (compile this file)
+%%    sections/
+%%      abstract.tex        <- abstract
+%%      introduction.tex    <- Section: Introduction
+%%      section1.tex        <- Section 1
+%%      section2.tex        <- Section 2
+%%      conclusions.tex     <- Section: Conclusions
+%%      references.bib      <- BibTeX bibliography
+%%    images/               <- all figures go here
+%%      README.md
+%% =============================================================
+
+
+%% ---------------------------------------------------------------
+%%  1.  DOCUMENT CLASS
+%%      "Lecture Notes in Computer Science" (llncs) style.
+%%      Change to e.g. \documentclass[12pt,a4paper]{article}
+%%      if you do not need the LNCS class.
+%% ---------------------------------------------------------------
+\documentclass[runningheads]{llncs}
+
+
+%% ---------------------------------------------------------------
+%%  2.  PACKAGES
+%% ---------------------------------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}           % \includegraphics
+\usepackage{float}              % [H] figure placement
+\usepackage{amsmath,amssymb}    % maths
+\usepackage{xcolor}             % colours
+\usepackage{xspace}             % smart spacing in macros
+\usepackage{ifthen}             % boolean flags (e.g. draft mode)
+\usepackage{booktabs}           % professional tables (\toprule etc.)
+\usepackage{url}                % \url{}
+\usepackage{hyperref}           % clickable links in PDF
+\usepackage{fancyhdr}           % custom headers/footers
+
+
+%% ---------------------------------------------------------------
+%%  3.  SECTION SPACING  (tighter than llncs defaults)
+%% ---------------------------------------------------------------
+\makeatletter
+\renewcommand\section{\@startsection{section}{1}{\z@}%
+  {-18\p@ \@plus -4\p@ \@minus -2\p@}%
+  {4\p@  \@plus  1\p@ \@minus  1\p@}%
+  {\normalfont\large\bfseries\boldmath
+   \rightskip=\z@ \@plus 8em\pretolerance=10000}}
+\renewcommand\subsection{\@startsection{subsection}{2}{\z@}%
+  {-12\p@ \@plus -4\p@ \@minus -2\p@}%
+  {3\p@  \@plus  1\p@ \@minus  1\p@}%
+  {\normalfont\normalsize\bfseries\boldmath
+   \rightskip=\z@ \@plus 8em\pretolerance=10000}}
+\makeatother
+
+
+%% ---------------------------------------------------------------
+%%  4.  DRAFT / REVIEW COMMENTS
+%%      Set showcomments to 'true' during authoring,
+%%      'false' for the final submission.
+%% ---------------------------------------------------------------
+\newboolean{showcomments}
+\setboolean{showcomments}{false}
+
+\ifthenelse{\boolean{showcomments}}{%
+  \newcommand{\nbnote}[3]{%
+    \fcolorbox{gray}{yellow}{\bfseries\sffamily\scriptsize#1}%
+    {\color{#2}\sffamily\small$\blacktriangleright$\textit{#3}$\blacktriangleleft$}}%
+}{%
+  \newcommand{\nbnote}[3]{}%
+  \newcommand{\version}{}%
+}
+
+%% Add one command per author, e.g.:
+\newcommand{\alice}[1]{\nbnote{alice}{blue}{#1}}
+\newcommand{\bob}[1]{\nbnote{bob}{magenta}{#1}}
+
+
+%% ---------------------------------------------------------------
+%%  5.  HEADER / FOOTER
+%% ---------------------------------------------------------------
+\pagestyle{fancy}
+\fancyhf{}                                      % clear all
+\fancyhead[L]{NLP\&S 2025/26 -- BioMedical NL Agents (Phase~1)}  % <- edit this
+\fancyhead[R]{\thepage}
+\renewcommand{\headrulewidth}{0.1pt}
+\renewcommand{\footrulewidth}{0pt}
+
+%% Optional logo in the footer (uncomment and adjust path):
+% \fancyfoot[R]{\raisebox{-2.7cm}{\includegraphics[height=1cm]{images/logo.png}}}
+
+%% Cover-page style (no header, keep footer logo if used):
+\fancypagestyle{coverfooter}{%
+  \fancyhf{}%
+  % \fancyfoot[R]{\raisebox{-2.7cm}{\includegraphics[height=1cm]{images/logo.png}}}
+  \renewcommand{\headrulewidth}{0pt}%
+  \renewcommand{\footrulewidth}{0pt}%
+}
+
+
+%% ---------------------------------------------------------------
+%%  6.  DOCUMENT BODY
+%% ---------------------------------------------------------------
+\begin{document}
+
+%% -- Title block ------------------------------------------------
+\title{BioMedical Natural Language Agents:\\A Search and Generation Pipeline for TREC BioGen}
+
+\author{Francisco Silva}
+
+\institute{%
+  Department of Computer Science, NOVA University Lisbon\\
+  \email{fc.silva@campus.fct.unl.pt}
+}
+
+\maketitle
+\thispagestyle{coverfooter}   % apply cover-page footer style
+
+
+%% -- Abstract ---------------------------------------------------
+\input{sections/abstract}
+
+
+%% -- Main sections ----------------------------------------------
+\input{sections/introduction}
+
+%% Section 2: BioGen NL Agent (three subsections, one file each)
+\input{sections/biogen_phase1}
+\input{sections/biogen_phase2}
+\input{sections/biogen_phase3}
+
+%% Section 3: Evaluation
+\input{sections/evaluation_setup}
+\input{sections/evaluation_results}
+
+%% Section 4: Conclusions
+\input{sections/conclusions}
+
+
+%% -- Bibliography -----------------------------------------------
+\bibliographystyle{splncs04}          % LNCS bibliography style
+\bibliography{sections/references}    % points to sections/references.bib
+
+\end{document}

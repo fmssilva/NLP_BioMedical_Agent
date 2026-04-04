@@ -1,0 +1,87 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%              INTRODUCTION               %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Introduction}
+\label{sec:intro}
+
+% ── MOTIVATION & PROBLEM DOMAIN ──────────────────────────────────────────────
+\begin{itemize}
+  \item LLMs have significantly advanced biomedical NLP tasks: question answering,
+        literature summarisation, clinical note processing.
+  \item Key challenge: \textbf{hallucinations and confabulations} — LLMs generate
+        plausible but unsupported claims, especially dangerous in clinical settings.
+  \item Grounding LLM outputs in retrieved evidence is the standard mitigation strategy
+        (Retrieval-Augmented Generation, RAG).
+  \item TREC BioGen 2024/2025~\cite{biogen2024} formalises this as a shared task: retrieve PubMed
+        abstracts, generate a grounded answer, and cite supporting evidence.
+
+  \item \textbf{Task definition:} given a biomedical question (topic + clinical question +
+        narrative), retrieve relevant PubMed abstracts and eventually generate a
+        paragraph-length answer with sentence-level citations.
+
+  \item \textbf{Why this is hard:}
+    \begin{itemize}
+      \item[--] Biomedical vocabulary gap: clinical queries use lay or mixed terminology;
+                PubMed abstracts use precise scientific notation.
+      \item[--] Precision vs.\ recall tension: missing a supporting study is as harmful as
+                citing a contradicting one.
+      \item[--] Citation-level granularity: the answer must ground every claim, not just
+                list references.
+      \item[--] Evaluation complexity: requires IR metrics (MAP, NDCG) \emph{and}
+                generation quality metrics (citation accuracy, factual consistency).
+    \end{itemize}
+\end{itemize}
+
+% ── PROJECT STRUCTURE ─────────────────────────────────────────────────────────
+\begin{itemize}
+  \item \textbf{Phase 1 — Search \& Evaluation (this report):}
+    \begin{itemize}
+      \item[--] Index 4{,}194 PubMed abstracts in OpenSearch.
+      \item[--] Implement and tune 5 retrieval strategies: BM25, LM Jelinek-Mercer,
+                LM Dirichlet, dense KNN, and Reciprocal Rank Fusion (RRF).
+      \item[--] Evaluate with MAP, MRR, P@10, R@100, NDCG@100 against
+                citation-derived relevance judgements.
+      \item[--] Best Phase~1 result: \textbf{RRF (tuned) NDCG@100 = 0.8259,
+                MAP = 0.6262, R@100 = 0.9143} on 33 held-out test queries.
+    \end{itemize}
+
+  \item \textbf{Phase 2 — RAG \& LLM Judges (upcoming):}
+    \begin{itemize}
+      \item[--] Cross-encoder reranking of retrieved evidence.
+      \item[--] LLM-generated paragraph answers with per-sentence citations.
+      \item[--] LLM-as-a-judge evaluation of answer quality and citation faithfulness.
+    \end{itemize}
+
+  \item \textbf{Phase 3 — Deep Research Agent (upcoming):}
+    \begin{itemize}
+      \item[--] ReAct-style agentic loop: plan sub-topics, retrieve per sub-topic,
+                aggregate evidence, write structured report.
+      \item[--] Multi-step reasoning over biomedical literature.
+    \end{itemize}
+\end{itemize}
+
+% ── CONTRIBUTIONS ─────────────────────────────────────────────────────────────
+\begin{itemize}
+  \item \textbf{Contributions (Phase 1):}
+    \begin{itemize}
+      \item[--] Full IR pipeline from raw JSONL corpus to evaluated ranked lists,
+                implemented from scratch following TREC and Lab03 protocols.
+      \item[--] Systematic hyperparameter tuning with strict train/test discipline
+                (5-fold CV on 32 train queries; test set touched once).
+      \item[--] Encoder comparison demonstrating that domain-matched MedCPT
+                yields $+$0.0506 NDCG@100 over general-domain msmarco-distilbert
+                on the test set ($+$42.8\% relative on train).
+      \item[--] Post-hoc analyses: statistical significance tests, IDF-based
+                difficulty characterisation, Jaccard overlap, confusion matrix
+                at P@10, query/document length correlations.
+    \end{itemize}
+\end{itemize}
+
+% ── PAPER STRUCTURE ───────────────────────────────────────────────────────────
+\noindent
+This report is organised as follows.
+Section~\ref{sec:biogen} describes the BioGen NL Agent pipeline across three phases.
+Section~\ref{sec:eval_setup} details the experimental setup (datasets, metrics, protocols).
+Section~\ref{sec:eval_results} presents Phase~1 results and discussion.
+Section~\ref{sec:conclusions} concludes and outlines future work.

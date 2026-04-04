@@ -1,0 +1,52 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%  SECTION 2c — LLM Agentic Patterns      %%%%
+%%%%              (Phase 3)                  %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{LLM Agentic Patterns (Phase~3)}
+\label{sec:phase3}
+
+% NOTE: Phase 3 is not yet implemented. Bullet points below outline the
+%       planned content and design decisions to be filled after completion.
+
+\begin{itemize}
+  \item \textbf{Goal:} build a Deep Research Agent that autonomously plans
+        sub-topics, retrieves evidence per sub-topic, aggregates findings, and
+        writes a structured biomedical report with grounded citations.
+
+  \item \textbf{Architecture (planned) — ReAct-style agentic loop:}
+    \begin{itemize}
+      \item[--] \textbf{Planner:} topic $\to$ list of sub-topics via LLM
+                (\emph{``What are the main dimensions of this biomedical question?''}).
+      \item[--] \textbf{Explorer:} for each sub-topic, run the Phase~1+2 pipeline
+                (retrieve, rerank, extract supporting sentences).
+      \item[--] \textbf{Aggregator:} merge evidence across sub-topics;
+                deduplicate citations; verify consistency across sub-claims.
+      \item[--] \textbf{Report writer:} compose structured final report with
+                section headings, per-claim citations, and a summary.
+    \end{itemize}
+
+  \item \textbf{Key design decisions (planned):}
+    \begin{itemize}
+      \item[--] Agent calls \texttt{retrieval.search(sub\_topic)} and
+                \texttt{generation.generate(docs, sub\_topic)} from shared
+                \texttt{src/} — no code duplication across phases.
+      \item[--] Each ReAct iteration: Reason $\to$ \texttt{SEARCH}
+                $\to$ Observe $\to$ \ldots $\to$ Generate.
+      \item[--] Stopping criterion: fixed max iterations or LLM confidence
+                threshold.
+    \end{itemize}
+
+  \item \textbf{Evaluation (planned):}
+    \begin{itemize}
+      \item[--] Citation accuracy: fraction of agent-cited PMIDs that are
+                in the qrels (binary precision).
+      \item[--] Sub-topic coverage: do the planned sub-topics collectively
+                address the original clinical question?
+      \item[--] Comparison against Phase~2 single-shot generation:
+                does multi-step planning improve factual coverage?
+    \end{itemize}
+
+  \item \textit{[To be completed after Phase~3 implementation.
+                All results and analysis will be added here.]}
+\end{itemize}

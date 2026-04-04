@@ -1,0 +1,323 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%   SECTION 3b — Results and Discussion   %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Results and Discussion}
+\label{sec:eval_results}
+
+% ── 3b.1  QUERY FIELD ABLATION ────────────────────────────────────────────────
+\subsubsection{Query Field Ablation (BM25, Train Set)}
+\begin{itemize}
+  \item Tested on 32 train queries; BM25 default parameters as proxy retriever.
+  \item \textbf{Winner: \texttt{topic+question}} — NDCG@100=0.7850.
+  \item \texttt{narrative} adds noise (instructions, qualifiers not in
+        abstracts); \texttt{topic} alone misses clinical context synonyms.
+\end{itemize}
+
+\begin{table}[htbp]
+\centering
+\caption{Query field ablation — BM25 default on 32 train topics.
+         Bold = winner; NDCG@100 is the selection criterion.}
+\label{tab:ablation}
+\begin{tabular}{lcccc}
+  \hline
+  \textbf{Field} & \textbf{MAP} & \textbf{MRR} & \textbf{P@10}
+                 & \textbf{NDCG@100} \\
+  \hline
+  topic only       & 0.5412 & 0.7694 & 0.5938 & 0.7696 \\
+  question only    & 0.5586 & 0.8016 & 0.6250 & 0.7770 \\
+  narrative only   & 0.5290 & 0.7660 & 0.6063 & 0.7630 \\
+  \textbf{topic+question}   & \textbf{0.5686} & 0.8073 & \textbf{0.6344} & \textbf{0.7850} \\
+  topic+narrative  & 0.5502 & 0.7942 & 0.6156 & 0.7721 \\
+  all three        & 0.5537 & \textbf{0.8091} & 0.6281 & 0.7740 \\
+  \hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.82\linewidth]{images/field_ablation.png}
+  \caption{Field ablation results — NDCG@100 (primary) and MAP for each
+           query formulation on the 32 train topics. \texttt{topic+question}
+           achieves the highest NDCG@100 and is locked for all subsequent
+           experiments.}
+  \label{fig:field_ablation}
+\end{figure}
+
+% ── 3b.2  HYPERPARAMETER TUNING ───────────────────────────────────────────────
+\subsubsection{Hyperparameter Tuning (5-Fold CV, Train Set)}
+\begin{itemize}
+  \item All sweeps use \texttt{topic+question} locked from §\ref{sec:eval_setup}.
+
+  \item \textbf{BM25} ($k_1 \times b$ grid, 20 configs): winner $k_1$=1.5,
+        $b$=1.0 — NDCG@100=\textbf{0.8011} ($\Delta$=+0.0092 vs default).
+        High $b$=1.0: longer, more comprehensive abstracts rewarded rather than
+        penalised.
+
+  \item \textbf{LM-JM} ($\lambda \in \{0.1,0.3,0.5,0.7,0.9\}$): winner
+        $\lambda$=0.7 — NDCG@100=0.7769 (unchanged from default; $\lambda$=0.9
+        is tied at $\Delta$=0.0001).
+
+  \item \textbf{LM-Dir} ($\mu \in \{50,75,100,200,500,1000,2000\}$): CV winner
+        $\mu$=100 — NDCG@100=0.7723 ($\Delta$=+0.0201 vs default $\mu$=2000).
+        Default over-smooths 150-word abstracts.
+
+  \item \textbf{Dense encoder}: MedCPT wins over multi-qa-mpnet and
+        msmarco-distilbert — NDCG@100=\textbf{0.8296}
+        ($\Delta$=+0.0837 vs msmarco baseline). Trained on 23M PubMed
+        click-through pairs — exact domain match.
+\end{itemize}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{images/tuning_summary.png}
+  \caption{Tuning summary: baseline vs.\ tuned NDCG@100 for every model
+           (5-fold CV on 32 train topics). Encoder selection (MedCPT) yields
+           the largest gain ($\Delta$NDCG@100=+0.0837); LM-Dir correction
+           ($\mu$=100) yields the second-largest (+0.0201).}
+  \label{fig:tuning_summary}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \begin{minipage}{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/bm25_param_sweep.png}
+    \caption{BM25 $k_1$/$b$ sweep — mean CV NDCG@100. Winner: $k_1$=1.5,
+             $b$=1.0.}
+    \label{fig:bm25_sweep}
+  \end{minipage}\hfill
+  \begin{minipage}{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/lmdir_mu_sweep.png}
+    \caption{LM-Dir $\mu$ sweep — mean CV NDCG@100. Default $\mu$=2000
+             drastically under-performs; winner is $\mu$=100.}
+    \label{fig:lmdir_sweep}
+  \end{minipage}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \begin{minipage}{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/lmjm_lambda_sweep.png}
+    \caption{LM-JM $\lambda$ sweep — NDCG@100 plateaus at $\lambda$=0.7;
+             already the default, no change needed.}
+    \label{fig:lmjm_sweep}
+  \end{minipage}\hfill
+  \begin{minipage}{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/encoder_comparison.png}
+    \caption{Encoder comparison — NDCG@100 on 32 train topics. MedCPT
+             dominates (+0.0837 over msmarco baseline).}
+    \label{fig:encoder_sweep}
+  \end{minipage}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.85\linewidth]{images/rrf_pair_sweep.png}
+  \caption{RRF pair sweep — 8 strategy pairs × 3 $k$ values, 5-fold CV.
+           Lexical pairs (BM25+LM-Dir) outperform KNN fusions at the
+           rank-level; native hybrid fusion (Phase~2) is the recommended
+           approach for BM25+KNN.}
+  \label{fig:rrf_sweep}
+\end{figure}
+
+% ── 3b.3  TEST SET RESULTS ────────────────────────────────────────────────────
+\subsubsection{Test Set Results (33 Topics)}
+\begin{itemize}
+  \item All strategies evaluated once on test set after parameters locked.
+  \item All use field=\texttt{topic+question}; top-100 results per query.
+\end{itemize}
+
+\begin{table}[htbp]
+\centering
+\caption{Baseline (default parameters) vs tuned — all 5 metrics on the
+         33-query test set. NDCG@100 is the primary metric (graded qrels).
+         Bold = best per column.}
+\label{tab:test_results}
+\begin{tabular}{lcccccc}
+  \hline
+  \textbf{Strategy} & \textbf{MAP} & \textbf{MRR} & \textbf{P@10}
+                    & \textbf{R@100} & \textbf{NDCG@100} \\
+  \hline
+  \multicolumn{6}{l}{\textit{Baseline (default parameters)}} \\
+  BM25 ($k_1$=1.2, $b$=0.75)   & 0.5695 & 0.7864 & 0.6333 & 0.8511 & 0.7788 \\
+  LM-JM ($\lambda$=0.7)         & 0.5427 & 0.7838 & 0.6333 & 0.8327 & 0.7609 \\
+  LM-Dir ($\mu$=2000)           & 0.5232 & 0.7590 & 0.6061 & 0.8063 & 0.7375 \\
+  KNN (msmarco)                 & 0.5561 & \textbf{0.8384} & 0.6879 & 0.8137 & 0.7589 \\
+  RRF (default)                 & 0.6105 & 0.8157 & 0.6667 & 0.8934 & 0.8135 \\
+  \hline
+  \multicolumn{6}{l}{\textit{Tuned (locked §\ref{sec:eval_setup} parameters)}} \\
+  BM25 ($k_1$=1.5, $b$=1.0)    & 0.5680 & 0.7283 & 0.6364 & 0.8602 & 0.7779 \\
+  LM-JM ($\lambda$=0.7)         & 0.5427 & 0.7838 & 0.6333 & 0.8327 & 0.7609 \\
+  LM-Dir ($\mu$=75)             & 0.5436 & 0.7737 & 0.6212 & 0.8265 & 0.7578 \\
+  KNN (MedCPT)                  & 0.6143 & 0.8000 & 0.6788 & 0.8933 & 0.8095 \\
+  \textbf{RRF (tuned)}          & \textbf{0.6262} & 0.8369
+                                & 0.6455 & \textbf{0.9143} & \textbf{0.8259} \\
+  \hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{images/baseline_vs_tuned_metrics.png}
+  \caption{All 5 metrics for each strategy, baseline (light) vs tuned (dark),
+           on the 33-query test set. MedCPT KNN shows the largest improvement
+           across all metrics; BM25 tuning effect is negligible.}
+  \label{fig:baseline_vs_tuned}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.85\linewidth]{images/tuning_gain_test.png}
+  \caption{Tuning gain on the test set ($\Delta$NDCG@100 and $\Delta$MAP,
+           tuned $-$ baseline). KNN and RRF gain significantly; BM25 tuning
+           yields no measurable gain ($\Delta\approx -0.0009$).}
+  \label{fig:tuning_gain}
+\end{figure}
+
+\begin{itemize}
+  \item \textbf{Key observations:}
+    \begin{itemize}
+      \item[--] \textbf{RRF wins on all major metrics} — fusion of lexical
+                and dense signals is complementary (Jaccard BM25$\cap$KNN
+                $\approx$0.13--0.16).
+      \item[--] \textbf{MedCPT} is the single most impactful change:
+                $\Delta$NDCG@100=+0.0506 vs msmarco KNN on test.
+      \item[--] \textbf{BM25 tuning effect is negligible} on test
+                (NDCG@100 $\Delta$=$-$0.0009).
+      \item[--] R@100=0.9143 for RRF — covers $>$91\% of relevant docs,
+                providing a strong evidence pool for Phase~2 generation.
+    \end{itemize}
+\end{itemize}
+
+% ── 3b.4  PRECISION-RECALL CURVES ────────────────────────────────────────────
+\subsubsection{Precision-Recall Analysis}
+\begin{itemize}
+  \item PR curves computed as 11-point interpolated mean across all 33 test
+        topics (Lab03 protocol).
+  \item Area under each curve approximates MAP — larger area = better
+        overall ranking.
+\end{itemize}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{images/pr_curves.png}
+  \caption{Mean interpolated PR curves for all strategies on the 33-query
+           test set (left) with MAP/MRR bar chart (right). RRF (tuned) and
+           KNN (MedCPT) dominate across the full recall range. LM variants
+           show steeper early-recall drops.}
+  \label{fig:pr_curves}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.85\linewidth]{images/pr_interpretation.png}
+  \caption{PR curve interpretation guide (top row: perfect / random / ideal
+           retriever; bottom row: fair / moderate / our actual test results).
+           Our strategies fall in the \emph{moderate-to-good} range — well
+           above random, with RRF approaching the ideal curve shape.}
+  \label{fig:pr_interp}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.82\linewidth]{images/individual_pr_curves.png}
+  \caption{Per-topic PR curves for RRF (tuned) on all 33 test topics.
+           Green = best topic (170, AP=0.9289); red = worst topic (156,
+           AP=0.1862); orange = median topic (138, AP=0.6572). Gray curves =
+           remaining 30 topics. Dashed navy = mean AP (MAP=0.6262).
+           Wide spread indicates high sensitivity to topic vocabulary.}
+  \label{fig:individual_pr}
+\end{figure}
+
+% ── 3b.5  PER-TOPIC ANALYSIS ─────────────────────────────────────────────────
+\subsubsection{Per-Topic AP Distribution}
+\begin{itemize}
+  \item AP ranges widely across topics — high sensitivity to query phrasing.
+  \item \textbf{Best:} topic 170 (AP=0.9289) — specific clinical terminology.
+  \item \textbf{Median:} topic 138 (AP=0.6572).
+  \item \textbf{Worst:} topic 156 (AP=0.1862) — broad query; many relevant
+        PMIDs absent from top-100.
+  \item \textbf{IDF analysis:} low-IDF terms (``treatment'', ``patient'')
+        correlate with low AP; disease-specific or gene-symbol terms
+        correlate with high AP.
+\end{itemize}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{images/ap_boxplot.png}
+  \caption{Per-topic AP distribution across all strategies (test set, 33
+           topics). RRF (tuned) achieves the highest median AP and the least
+           variance. Wide IQR reflects inherent topic-difficulty spread.
+           Outliers below the whisker correspond to hard topics (AP$<$0.3).}
+  \label{fig:ap_boxplot}
+\end{figure}
+
+% ── 3b.6  RETRIEVAL DIVERSITY (JACCARD) ───────────────────────────────────────
+\subsubsection{Retrieval Diversity (Jaccard Overlap)}
+\begin{itemize}
+  \item Jaccard overlap between top-100 result sets, averaged across test topics.
+  \item \textbf{BM25 $\cap$ MedCPT KNN:} $\approx$0.13--0.16 (complementary
+        signals — good fusion candidate).
+  \item \textbf{BM25 $\cap$ LM-JM / LM-Dir:} $\approx$0.60--0.75 (both
+        lexical — diminishing fusion gains).
+  \item \textbf{Implication:} RRF gains come primarily from the dense--sparse
+        vocabulary diversity.
+\end{itemize}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.72\linewidth]{images/jaccard_overlap.png}
+  \caption{Jaccard overlap between top-100 result sets for all strategy pairs
+           (test set). BM25 and MedCPT KNN share very few results
+           ($\approx$0.13), explaining why their fusion yields the largest
+           RRF gain.}
+  \label{fig:jaccard}
+\end{figure}
+
+% ── 3b.7  ADDITIONAL ANALYSIS FIGURES ────────────────────────────────────────
+\subsubsection{Additional Analysis}
+
+\begin{figure}[htbp]
+  \centering
+  \begin{minipage}{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/doc_length_distribution.png}
+    \caption{Corpus document length distribution (word count). Mean=150 words;
+             right-skewed with a long tail up to 964 words. Motivates $b$=1.0
+             length normalisation in BM25 and low $\mu$ in LM-Dir.}
+    \label{fig:doc_lengths}
+  \end{minipage}\hfill
+  \begin{minipage}{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/rr_distribution.png}
+    \caption{Reciprocal rank distribution for each strategy (test set). MedCPT
+             and RRF return the first relevant document much earlier (higher
+             RR) than lexical models.}
+    \label{fig:rr_dist}
+  \end{minipage}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \begin{minipage}{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/confusion_at_p10.png}
+    \caption{Confusion matrix at P@10 — relevant vs.\ retrieved in the top-10
+             results, per strategy. RRF (tuned) achieves the highest true
+             positive rate in the top-10 positions.}
+    \label{fig:confusion_p10}
+  \end{minipage}\hfill
+  \begin{minipage}{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/query_length_vs_ap.png}
+    \caption{Query length (token count) vs.\ AP per topic for RRF (tuned).
+             Longer queries generally produce higher AP, consistent with the
+             \texttt{topic+question} ablation result.}
+    \label{fig:query_len_ap}
+  \end{minipage}
+\end{figure}
+

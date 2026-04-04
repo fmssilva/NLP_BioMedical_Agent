@@ -1,0 +1,65 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%   SECTION 2b — LLM Augmented Generation %%%%
+%%%%              (Phase 2)                  %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{LLM Augmented Generation (Phase~2)}
+\label{sec:phase2}
+
+% NOTE: Phase 2 is not yet implemented. Bullet points below outline the
+%       planned content and design decisions to be filled after completion.
+
+\begin{itemize}
+  \item \textbf{Goal:} generate a grounded paragraph-length answer per topic,
+        citing specific PubMed abstracts as evidence, using the Phase~1 retrieval
+        backbone as the evidence source.
+
+  \item \textbf{Retrieval backbone (inherited from Phase~1):}
+    \begin{itemize}
+      \item[--] RRF (tuned): BM25 ($k_1$=1.5, $b$=1.0) + MedCPT KNN.
+      \item[--] NDCG@100=0.8259, R@100=0.9143 — retrieves 91.4\% of relevant
+                docs in top 100, providing a rich evidence pool for generation.
+    \end{itemize}
+
+  \item \textbf{Cross-encoder reranking (planned):}
+    \begin{itemize}
+      \item[--] Model: \texttt{ncbi/MedCPT-Cross-Encoder} or BioBERT-based
+                cross-encoder.
+      \item[--] Input: (query, candidate abstract) pairs; output: relevance score.
+      \item[--] Select top-3 supporting sentences per abstract for citation injection.
+      \item[--] Reranked list passed to the generation step.
+    \end{itemize}
+
+  \item \textbf{LLM generation (planned):}
+    \begin{itemize}
+      \item[--] Server: vLLM at \texttt{amalia.novasearch.org} via OpenAI-compatible
+                API.
+      \item[--] Prompt design: system role + retrieved abstracts (top-$k$) +
+                question $\to$ paragraph answer with inline citations.
+      \item[--] Constraints (TREC BioGen 2025): $\leq$2{,}500 words,
+                $\leq$3 PMIDs per sentence, only PMIDs from the corpus.
+      \item[--] Citation injection: post-process raw LLM output to add bracketed
+                PMID references after each sentence.
+    \end{itemize}
+
+  \item \textbf{LLM-as-judge evaluation (planned):}
+    \begin{itemize}
+      \item[--] GPT-4o via IAedu API as judge model (not vLLM).
+      \item[--] Sentence-level alignment: judge classifies each generated sentence
+                as supported / contradicted / ungrounded by cited abstracts.
+      \item[--] Metrics to report: citation accuracy rate, factual consistency,
+                hallucination rate.
+    \end{itemize}
+
+  \item \textbf{Embedding and attention analysis exercise (planned):}
+    \begin{itemize}
+      \item[--] Positional embeddings: visualise distance from token 1 across
+                200 repeated tokens (2D scatter, distance matrix).
+      \item[--] Contextual embeddings: visualise layer 0 to layer 11 evolution.
+      \item[--] Self-attention: examine cross-encoder attention patterns for
+                query-evidence alignment.
+    \end{itemize}
+
+  \item \textit{[To be completed after Phase~2 implementation.
+                All results and analysis will be added here.]}
+\end{itemize}
