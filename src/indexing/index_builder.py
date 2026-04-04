@@ -1,35 +1,3 @@
-"""
-src/indexing/index_builder.py
-
-OpenSearch index schema builder for the BioGen IR pipeline.
-
-Public API:
-    IndexSettings                          -- dataclass: HNSW + shard settings
-    build_index_mapping(params, ...)       -- build (or extend) an index mapping
-    create_index(client, index_name, ...)  -- build mapping + create index in one call
-    verify_mapping(client, index_name)     -- print live settings/mappings summary
-    get_live_fields(client, index_name)    -- return set of field names from live index
-
-Design:
-  - One shared index per project. Fields are ADDED to it as experiments grow.
-  - All model params are passed as LISTS so callers can define any combination.
-  - build_index_mapping() accepts an optional existing_mapping dict; new fields
-    are merged in without touching existing ones (additive, never destructive).
-  - create_index() is the single public entry-point: it calls build_index_mapping()
-    internally so callers never need two steps.
-  - OpenSearch bakes similarity params into fields at indexing time, so each
-    (model, param) combination needs its own named field.
-
-Field naming conventions:
-  BM25   : contents_bm25_k{k1}_b{b}          e.g. contents_bm25_k15_b10
-  LM-JM  : contents_lmjm_{lambda}            e.g. contents_lmjm_07
-  LM-Dir : contents_lmdir_{mu}               e.g. contents_lmdir_75
-  KNN    : embedding_{encoder_alias}         e.g. embedding_msmarco, embedding_medcpt
-
-The baseline BM25 field is always named "contents" (OpenSearch default similarity).
-The baseline KNN field is always named "embedding" (msmarco, initial index).
-"""
-
 import os
 import sys
 from dataclasses import dataclass
@@ -40,9 +8,18 @@ from opensearchpy import OpenSearch
 from src.indexing.opensearch_client import get_client, check_health
 
 
+######################################################################
+## Index schema builder — field definitions and index lifecycle.
+## Field naming: contents_bm25_k{k1}_b{b}, contents_lmjm_{lam},
+##               contents_lmdir_{mu}, embedding_{alias}.
+######################################################################
+
+
 # ---------------------------------------------------------------------------
-# Default best params (used when running python -m src.indexing.index_builder)
-# Updated after Phase 1 CV sweep.  The notebook always passes its own values.
+# Default best params — for local CLI test only (python -m src.indexing.index_builder).
+# SOURCE OF TRUTH for these values is the notebook constants cell (§1.2).
+# Do NOT use these in src/ logic — accept params as arguments instead.
+# Updated after Phase 1 CV sweep.
 # ---------------------------------------------------------------------------
 
 _BEST_PARAMS = {
@@ -50,7 +27,7 @@ _BEST_PARAMS = {
     "lmjm_lambdas":    [0.7],
     "lmdir_mus":       [75],
     "encoders":        [("medcpt", "ncbi/MedCPT-Query-Encoder", 768)],
-    #                    ↑ (alias, hf_model_id, dim)
+    #                    ^ (alias, hf_model_id, dim) -- alias -> embedding_{alias} field
 }
 
 
@@ -61,9 +38,9 @@ _BEST_PARAMS = {
 @dataclass
 class IndexSettings:
     """
-    Index-level settings that apply globally (not per-field).
+    Index-level settings that apply globally to index (not per-field).
 
-    KNN notes:
+    KNN params:
       ef_search     — candidates explored per query; higher = better recall, slower.
                       Applies index-wide (OpenSearch quirk: it's a setting, not per-field).
       ef_construct  — candidates when building the HNSW graph; higher = better graph, slower build.
@@ -72,49 +49,44 @@ class IndexSettings:
     n_shards:         int = 4
     n_replicas:       int = 0
     refresh_interval: str = "-1"    # "-1" disables auto-refresh during bulk indexing (fast)
+    # knn params
     ef_search:        int = 100     # should be >= k (number of results requested per query)
     ef_construct:     int = 256
     hnsw_m:           int = 48
 
 
 # ---------------------------------------------------------------------------
-# Internal field builders — one function per field family
+# Field builders — one function per field family
 # ---------------------------------------------------------------------------
 
-def _float_tag(v: float) -> str:
-    """0.7 → '07', 1.5 → '15', 2000 → '2000'"""
+def float_tag(v: float) -> str:
+    """Shared helper: 0.7 -> '07', 1.5 -> '15', 2000 -> '2000'. Used by indexing + retrieval."""
     return str(v).replace(".", "")
 
 
 def _bm25_field(k1: float, b: float, analyzer: str) -> tuple[str, dict, dict]:
-    """
-    Returns (field_name, similarity_cfg, field_mapping).
-    The baseline BM25 field (k1=1.2, b=0.75) uses the built-in "BM25" name.
-    Custom k1/b pairs get a named similarity config.
-    """
-    if k1 == 1.2 and b == 0.75:
-        # OpenSearch default — no custom similarity needed
-        sim_name = "BM25"
-        sim_cfg  = None
-        fname    = "contents"
-    else:
-        sim_name = f"bm25_k{_float_tag(k1)}_b{_float_tag(b)}_similarity"
-        sim_cfg  = {"type": "BM25", "k1": k1, "b": b}
-        fname    = f"contents_bm25_k{_float_tag(k1)}_b{_float_tag(b)}"
-
-    fmap = {"type": "text", "analyzer": analyzer, "similarity": sim_name}
+    # Example for BM25 with k1=1.5, b=1.0, we return:
+    # ("contents_bm25_k15_b10", {"type": "BM25", "k1": 1.5, "b": 1.0}, {"type": "text", "analyzer": "standard", "similarity": "bm25_k15_b10_similarity"})  
+    sim_name = f"bm25_k{float_tag(k1)}_b{float_tag(b)}_similarity"
+    sim_cfg  = {"type": "BM25", "k1": k1, "b": b}
+    fname    = f"contents_bm25_k{float_tag(k1)}_b{float_tag(b)}"
+    fmap     = {"type": "text", "analyzer": analyzer, "similarity": sim_name}
     return fname, sim_cfg, fmap
 
 
 def _lmjm_field(lam: float, analyzer: str) -> tuple[str, dict, dict]:
-    sim_name = f"lmjm_{_float_tag(lam)}_similarity"
+    # Example for LM-JM with lambda=0.7, we return:
+    # ("contents_lmjm_07", {"type": "LMJelinekMercer", "lambda": 0.7}, {"type": "text", "analyzer": "standard", "similarity": "lmjm_07_similarity"})
+    sim_name = f"lmjm_{float_tag(lam)}_similarity"
     sim_cfg  = {"type": "LMJelinekMercer", "lambda": lam}
-    fname    = f"contents_lmjm_{_float_tag(lam)}"
+    fname    = f"contents_lmjm_{float_tag(lam)}"
     fmap     = {"type": "text", "analyzer": analyzer, "similarity": sim_name}
     return fname, sim_cfg, fmap
 
 
 def _lmdir_field(mu: int, analyzer: str) -> tuple[str, dict, dict]:
+    # Example for LM-Dir with mu=75, we return:
+    # ("contents_lmdir_75", {"type": "LMDirichlet", "mu": 75}, {"type": "text", "analyzer": "standard", "similarity": "lmdir_75_similarity"})
     sim_name = f"lmdir_{mu}_similarity"
     sim_cfg  = {"type": "LMDirichlet", "mu": mu}
     fname    = f"contents_lmdir_{mu}"
@@ -123,11 +95,9 @@ def _lmdir_field(mu: int, analyzer: str) -> tuple[str, dict, dict]:
 
 
 def _knn_field(alias: str, dim: int, settings: IndexSettings) -> tuple[str, dict]:
-    """
-    Returns (field_name, field_mapping).
-    The baseline msmarco field is named "embedding"; others are "embedding_{alias}".
-    """
-    fname = "embedding" if alias == "msmarco" else f"embedding_{alias}"
+    # Example for KNN with alias="msmarco", dim=768, we return:
+    # ("embedding_msmarco", {"type": "knn_vector", "dimension": 768, "method": {"name": "hnsw", "space_type": "innerproduct", "engine": "faiss", "parameters": {"ef_construction": 256, "m": 48}}})
+    fname = f"embedding_{alias}"
     fmap  = {
         "type":      "knn_vector",
         "dimension": dim,
@@ -145,77 +115,48 @@ def _knn_field(alias: str, dim: int, settings: IndexSettings) -> tuple[str, dict
 
 
 # ---------------------------------------------------------------------------
-# Public API
+# Main Public Method
 # ---------------------------------------------------------------------------
 
 def build_index_mapping(
-    bm25_k1_b_pairs: list[tuple[float, float]] | None = None,
-    lmjm_lambdas:    list[float]                | None = None,
-    lmdir_mus:       list[int]                  | None = None,
-    encoders:        list[tuple[str, str, int]] | None = None,
-    existing_mapping: dict | None = None,
-    settings:        IndexSettings = None,
-    analyzer:        str = "standard",
+    bm25_k1_b_pairs:  list[tuple[float, float]]    = [],
+    lmjm_lambdas:     list[float]                   = [],
+    lmdir_mus:        list[int]                     = [],
+    encoders:         list[tuple[str, str, int]]    = [],
+    existing_mapping: dict                          | None = None,
+    settings:         IndexSettings                 | None = None,
+    analyzer:         str = "standard",
 ) -> dict:
     """
     Build (or extend) a full OpenSearch index body {settings, mappings}.
+    Returns dict ready for client.indices.create().
 
-    All model params are lists — pass a list with one element for a single value.
-    When ``existing_mapping`` is provided, new fields are merged in without
-    touching existing ones (additive, safe to call repeatedly).
+    Pass only the field families you need — omit a list to skip that type entirely.
 
-    Args:
-        bm25_k1_b_pairs:  List of (k1, b) tuples.  e.g. [(1.2, 0.75), (1.5, 1.0)]
-                          Default: [(1.2, 0.75)]  (OpenSearch default, baseline field "contents")
-        lmjm_lambdas:     List of LM-JM λ values.  e.g. [0.1, 0.7]
-                          Default: [0.7]
-        lmdir_mus:        List of LM-Dir μ values.  e.g. [75, 2000]
-                          Default: [75]
-        encoders:         List of (alias, hf_model_id, dim) tuples.
-                          e.g. [("msmarco", "sentence-transformers/msmarco-distilbert-base-v2", 768)]
-                          alias "msmarco" → field "embedding"; others → "embedding_{alias}"
-                          Default: [("msmarco", "...", 768)]
-        existing_mapping: Existing {settings, mappings} dict from a previous call or
-                          from client.indices.get(). New fields are merged in.
-                          Pass None to build from scratch.
-        settings:         IndexSettings dataclass (shards, replicas, HNSW params).
-                          Defaults to IndexSettings() with sensible defaults.
-        analyzer:         Text analyzer for all text fields.  Default "standard".
-
-    Returns:
-        dict with keys "settings" and "mappings" ready for client.indices.create().
+    encoders: (alias, hf_model_id, dim) — same constants as in the notebook,
+              e.g. [("msmarco", "sentence-transformers/...", 768)].
+    existing_mapping: merge new fields in without touching existing ones (additive).
     """
     if settings is None:
         settings = IndexSettings()
-
-    # Apply defaults
-    if bm25_k1_b_pairs is None:
-        bm25_k1_b_pairs = [(1.2, 0.75)]
-    if lmjm_lambdas is None:
-        lmjm_lambdas = [0.7]
-    if lmdir_mus is None:
-        lmdir_mus = [75]
-    if encoders is None:
-        encoders = [("msmarco", "sentence-transformers/msmarco-distilbert-base-v2", 768)]
 
     # Collect new similarities and fields
     new_similarities: dict = {}
     new_fields: dict = {}
 
-    # Always include the doc_id keyword field
+    # doc_id is always present
     new_fields["doc_id"] = {"type": "keyword"}
 
     # BM25 fields
     for k1, b in bm25_k1_b_pairs:
         fname, sim_cfg, fmap = _bm25_field(k1, b, analyzer)
-        if sim_cfg is not None:
-            new_similarities[f"bm25_k{_float_tag(k1)}_b{_float_tag(b)}_similarity"] = sim_cfg
+        new_similarities[f"bm25_k{float_tag(k1)}_b{float_tag(b)}_similarity"] = sim_cfg
         new_fields[fname] = fmap
 
     # LM-JM fields
     for lam in lmjm_lambdas:
         fname, sim_cfg, fmap = _lmjm_field(lam, analyzer)
-        new_similarities[f"lmjm_{_float_tag(lam)}_similarity"] = sim_cfg
+        new_similarities[f"lmjm_{float_tag(lam)}_similarity"] = sim_cfg
         new_fields[fname] = fmap
 
     # LM-Dir fields
@@ -224,7 +165,7 @@ def build_index_mapping(
         new_similarities[f"lmdir_{mu}_similarity"] = sim_cfg
         new_fields[fname] = fmap
 
-    # KNN embedding fields
+    # KNN embedding fields — encoders: (alias, hf_model_id, dim)
     for alias, _hf_id, dim in encoders:
         fname, fmap = _knn_field(alias, dim, settings)
         new_fields[fname] = fmap
@@ -279,8 +220,6 @@ def get_live_fields(client: OpenSearch, index_name: str) -> set[str]:
 def get_live_field_types(client: OpenSearch, index_name: str) -> dict[str, str]:
     """
     Return {field_name: field_type} for all top-level fields in the live index.
-    Returns empty dict if the index doesn't exist.
-
     Example:
         {"doc_id": "keyword", "contents": "text",
          "embedding": "knn_vector", "embedding_medcpt": "knn_vector"}
@@ -296,8 +235,6 @@ def get_live_field_types(client: OpenSearch, index_name: str) -> dict[str, str]:
 def delete_index(client: OpenSearch, index_name: str) -> None:
     """
     Delete the named OpenSearch index — all docs and mapping are lost.
-    No-op (with a warning) if the index doesn't exist.
-    Used for testing and full reset between experiments.
     """
     if not client.indices.exists(index=index_name):
         print(f"[index_builder] delete_index: '{index_name}' does not exist — nothing to delete.")
@@ -309,67 +246,160 @@ def delete_index(client: OpenSearch, index_name: str) -> None:
         raise RuntimeError(f"Index deletion not acknowledged for '{index_name}'. Response: {resp}")
 
 
-def create_index(
+def create_or_update_index(
     client:          OpenSearch,
     index_name:      str,
-    bm25_k1_b_pairs: list[tuple[float, float]] | None = None,
-    lmjm_lambdas:    list[float]                | None = None,
-    lmdir_mus:       list[int]                  | None = None,
-    encoders:        list[tuple] | None = None,
-    settings:        IndexSettings = None,
+    bm25_k1_b_pairs: list[tuple[float, float]]  = [],
+    lmjm_lambdas:    list[float]                 = [],
+    lmdir_mus:       list[int]                   = [],
+    encoders:        list[tuple[str, str, int]]  = [],
+    settings:        IndexSettings               = None,
     analyzer:        str = "standard",
-) -> dict:
+) -> None:
     """
-    Build the index mapping and create the index in OpenSearch in one call.
+    Single entry point for index lifecycle. Creates the index if new, or adds
+    only the missing fields/similarities if it already exists. Fully idempotent.
 
-    Idempotent: if the index already exists, logs and returns without changes.
+    Branch A (new index):  builds full mapping + creates in one shot.
+    Branch B (existing):   diffs live fields vs requested, adds only what's missing.
+                           Similarity changes need close->put_settings->open (handled here).
+                           KNN dim mismatches are warned but not auto-fixed — re-run
+                           index_documents to overwrite the stored vectors.
 
-    Args: same as build_index_mapping() — see that docstring.
-    encoders: accepts either:
-      - list[(alias, hf_model_id, dim)]      -- explicit dim (legacy / manual)
-      - list[(alias, hf_model_id, ndarray)]  -- from create_embeddings; dim inferred from array
-
-    Returns:
-        The mapping dict that was (or would have been) used for creation.
+    encoders: list of (alias, hf_model_id, dim) — same constants as in the notebook,
+              e.g. [("msmarco", "sentence-transformers/...", 768)].
     """
-    import numpy as np
+    if settings is None:
+        settings = IndexSettings()
 
-    # normalise encoders: if third element is an ndarray, extract its dim
-    if encoders is not None:
-        normalised = []
-        for entry in encoders:
-            alias, hf_id, third = entry[0], entry[1], entry[2]
-            dim = int(third.shape[1]) if isinstance(third, np.ndarray) else int(third)
-            normalised.append((alias, hf_id, dim))
-        encoders = normalised
-
-    mapping = build_index_mapping(
-        bm25_k1_b_pairs=bm25_k1_b_pairs,
-        lmjm_lambdas=lmjm_lambdas,
-        lmdir_mus=lmdir_mus,
-        encoders=encoders,
-        settings=settings,
-        analyzer=analyzer,
-    )
-
-    if client.indices.exists(index=index_name):
-        print(f"[index_builder] Index '{index_name}' already exists — skipping creation.")
-        return mapping
-
-    print(f"[index_builder] Creating index '{index_name}' ...")
-    response = client.indices.create(index=index_name, body=mapping)
-    if response.get("acknowledged"):
-        fields = list(mapping["mappings"]["properties"].keys())
-        print(f"[index_builder] Index '{index_name}' created [ok]  fields={fields}")
-    else:
-        raise RuntimeError(
-            f"Index creation not acknowledged for '{index_name}'. Response: {response}"
+    # ── Branch A: create from scratch ─────────────────────────────────────────
+    if not client.indices.exists(index=index_name):
+        mapping = build_index_mapping(
+            bm25_k1_b_pairs = bm25_k1_b_pairs,
+            lmjm_lambdas    = lmjm_lambdas,
+            lmdir_mus       = lmdir_mus,
+            encoders        = encoders,
+            settings        = settings,
+            analyzer        = analyzer,
         )
+        print(f"[index_builder] Creating index '{index_name}' ...")
+        response = client.indices.create(index=index_name, body=mapping)
+        if response.get("acknowledged"):
+            fields = list(mapping["mappings"]["properties"].keys())
+            print(f"[index_builder] Index '{index_name}' created [ok]  ({len(fields)} fields)")
+        else:
+            raise RuntimeError(
+                f"Index creation not acknowledged for '{index_name}'. Response: {response}"
+            )
+        return
 
-    return mapping
+    # ── Branch B: index exists — diff and add only what is missing ────────────
+    print(f"[index_builder] Index '{index_name}' exists — checking for missing fields ...")
+    live_fields = get_live_fields(client, index_name)
+    live_sims_cfg = (
+        client.indices.get_settings(index=index_name)
+        .get(index_name, {}).get("settings", {}).get("index", {}).get("similarity", {})
+    )
+    live_sim_names = set(live_sims_cfg.keys())
+    print(f"  Live fields: {len(live_fields)}  |  Live sim configs: {len(live_sim_names)}")
+
+    new_sims  = {}  # sim configs not yet in the index settings
+    new_props = {}  # field mappings not yet in the index
+
+    for k1, b in bm25_k1_b_pairs:
+        fname, sim_cfg, fmap = _bm25_field(k1, b, analyzer)
+        if fname not in live_fields:
+            new_props[fname] = fmap
+            sim_name = fmap.get("similarity")
+            if sim_name and sim_name not in live_sim_names:
+                new_sims[sim_name] = sim_cfg
+            print(f"  [+] BM25  : {fname}")
+        else:
+            print(f"  [=] BM25  : {fname}")
+
+    for lam in lmjm_lambdas:
+        fname, sim_cfg, fmap = _lmjm_field(lam, analyzer)
+        if fname not in live_fields:
+            new_props[fname] = fmap
+            sim_name = fmap.get("similarity")
+            if sim_name and sim_name not in live_sim_names:
+                new_sims[sim_name] = sim_cfg
+            print(f"  [+] LMJM  : {fname}")
+        else:
+            print(f"  [=] LMJM  : {fname}")
+
+    for mu in lmdir_mus:
+        fname, sim_cfg, fmap = _lmdir_field(mu, analyzer)
+        if fname not in live_fields:
+            new_props[fname] = fmap
+            sim_name = fmap.get("similarity")
+            if sim_name and sim_name not in live_sim_names:
+                new_sims[sim_name] = sim_cfg
+            print(f"  [+] LMDir : {fname}")
+        else:
+            print(f"  [=] LMDir : {fname}")
+
+    # For KNN fields that already exist, check dim matches — can't change it after creation.
+    # Warn only; caller must re-run index_documents to overwrite the stored vectors.
+    live_props = (
+        client.indices.get_mapping(index=index_name)
+        .get(index_name, {}).get("mappings", {}).get("properties", {})
+    )
+    for alias, _model_name, dim in encoders:
+        fname, fmap = _knn_field(alias, dim, settings)
+        if fname not in live_fields:
+            new_props[fname] = fmap
+            print(f"  [+] KNN   : {fname}  (dim={dim})")
+        else:
+            live_dim = live_props.get(fname, {}).get("dimension")
+            if live_dim is not None and int(live_dim) != dim:
+                print(f"  [!] KNN dim mismatch '{fname}': live={live_dim}, requested={dim}")
+            else:
+                print(f"  [=] KNN   : {fname}  (dim={dim})")
+
+    # Similarity changes require close -> put_settings -> open
+    if new_sims:
+        print(f"  Adding {len(new_sims)} sim config(s) — closing index ...")
+        client.indices.close(index=index_name)
+        try:
+            client.indices.put_settings(index=index_name,
+                                        body={"index": {"similarity": new_sims}})
+            print("  put_settings [ok]")
+        finally:
+            client.indices.open(index=index_name)
+            print("  Index re-opened.")
+
+    if new_props:
+        print(f"  put_mapping: {len(new_props)} new field(s): {sorted(new_props)}")
+        client.indices.put_mapping(index=index_name, body={"properties": new_props})
+        print("  put_mapping [ok]")
+    else:
+        print("  Index mapping is already complete — nothing to add.")
 
 
+#################################################################
+##                  LOCAL TEST                                 ##
+#################################################################
+if __name__ == "__main__":
+    import os
+    from dotenv import load_dotenv
 
+    load_dotenv()
+    client     = get_client()
+    index_name = os.getenv("OPENSEARCH_INDEX", "biogen_test")
 
-
+    check_health(client)
+    create_or_update_index(
+        client,
+        index_name,
+        bm25_k1_b_pairs=_BEST_PARAMS["bm25_k1_b_pairs"],
+        lmjm_lambdas=_BEST_PARAMS["lmjm_lambdas"],
+        lmdir_mus=_BEST_PARAMS["lmdir_mus"],
+        encoders=_BEST_PARAMS["encoders"],
+    )
+    live_fields = get_live_fields(client, index_name)
+    live_types  = get_live_field_types(client, index_name)
+    print(f"\nLive fields ({len(live_fields)}): {sorted(live_fields)}")
+    print(f"Field types: {live_types}")
+    print("\n[index_builder] local test done.")
 

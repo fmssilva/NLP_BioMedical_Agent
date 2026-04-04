@@ -4,23 +4,22 @@ src/indexing/__index_builder_test.py
 Comprehensive tests for the indexing layer using a 10-doc mini-corpus.
 
 Test flow:
-  1. Connect to OpenSearch, confirm cluster is healthy.
-  2. Delete the test index (clean slate).
-  3. Create a BASELINE index (BM25 default only, no KNN).
-  4. Verify baseline mapping: correct fields, similarities, settings.
-  5. Index 10 docs with a fake 4-dim baseline embedding.
-  6. Verify doc count = 10, all baseline text fields populated.
-  7. Idempotency: call index_documents() again — must skip.
-  8. Add MORE fields to the mapping (tuned BM25 + LM-JM + LM-Dir + KNN).
-     NOTE: OpenSearch doesn't allow PUT mapping to add new similarities
-     after index creation, so more-field testing uses a fresh index.
-  9. Create FULL index (all field types) from scratch.
-  10. Index 10 docs with 4-dim embeddings for both KNN fields.
-  11. Verify all field names correct, all similarities present.
-  12. Idempotency again on the full index.
-  13. Add-field detection: re-call index_documents with an extra KNN field
-      that was NOT in the original embeddings_map -> must trigger re-index.
-  14. Delete the test index — clean up.
+  1.  Connect to OpenSearch, confirm cluster is healthy.
+  2.  Delete the test index (clean slate).
+  3.  build_index_mapping() dry run — no OpenSearch call.
+  4.  create_or_update_index() — new index (Branch A: create).
+  5.  Index 10 docs with a fake 4-dim baseline embedding.
+  6.  Verify doc count = 10, all baseline text fields populated.
+  7.  index_documents() idempotency — same corpus + same fields: must skip.
+  8.  create_or_update_index() idempotency — same args on existing index: nothing to add.
+  9.  create_or_update_index() add-fields — call with extra BM25/LM-JM/LM-Dir/KNN
+      configs on the existing index (Branch B: diff + add).
+  10. Full index from scratch: delete + recreate with ALL field types.
+  11. Index 10 docs with 2 KNN fields.
+  12. new-field detection: index_documents must re-index when a new KNN field is added.
+  13. Shape mismatch guard: index_documents must raise ValueError.
+  14. KNN dim mismatch warning in create_or_update_index.
+  15. Clean up — delete test index.
 
 Run with:
     cd C:\\Users\\franc\\Desktop\\NLP_Biomedical_Agent
@@ -33,6 +32,7 @@ from pathlib import Path
 
 import numpy as np
 from dotenv import load_dotenv
+from opensearchpy import OpenSearch
 
 # make sure project root is on sys.path when running as __main__
 _ROOT = Path(__file__).resolve().parents[2]
@@ -42,7 +42,7 @@ if str(_ROOT) not in sys.path:
 from src.indexing.index_builder import (
     IndexSettings,
     build_index_mapping,
-    create_index,
+    create_or_update_index,
     delete_index,
     get_live_fields,
     get_live_field_types,
@@ -183,7 +183,7 @@ def run_tests(index_name: str) -> None:
     _section("3 -- build_index_mapping() -- dry run (no OpenSearch call)")
 
     mapping = build_index_mapping(
-        bm25_k1_b_pairs = [(1.2, 0.75)],   # default -> "contents"
+        bm25_k1_b_pairs = [(1.2, 0.75)],   # -> contents_bm25_k12_b075
         lmjm_lambdas    = [0.7],
         lmdir_mus       = [75],
         encoders        = BASELINE_ENCODERS,
@@ -193,28 +193,27 @@ def run_tests(index_name: str) -> None:
     props = mapping["mappings"]["properties"]
     sims  = mapping["settings"]["similarity"]
 
-    expected_fields = {"doc_id", "contents", "contents_lmjm_07", "contents_lmdir_75", "embedding"}
+    expected_fields = {
+        "doc_id", "contents_bm25_k12_b075",
+        "contents_lmjm_07", "contents_lmdir_75", "embedding_msmarco",
+    }
     _assert(set(props.keys()) == expected_fields,
             f"mapping fields: {set(props.keys())}")
+    _assert("bm25_k12_b075_similarity" in sims, "bm25_k12_b075 similarity present")
+    _assert("lmjm_07_similarity" in sims,        "lmjm_07 similarity present")
+    _assert("lmdir_75_similarity" in sims,        "lmdir_75 similarity present")
 
-    # (1.2, 0.75) is the OS default — should NOT add a named similarity
-    _assert("bm25_k12_b075_similarity" not in sims,
-            "default BM25 has no custom similarity entry")
-    _assert("lmjm_07_similarity" in sims,    "lmjm_07 similarity present")
-    _assert("lmdir_75_similarity" in sims,   "lmdir_75 similarity present")
-
-    # KNN field has the right dimension
-    knn_fdef = props["embedding"]
-    _assert(knn_fdef["type"] == "knn_vector",                  "embedding type = knn_vector")
-    _assert(knn_fdef["dimension"] == EMB_DIM,                   f"embedding dim = {EMB_DIM}")
+    knn_fdef = props["embedding_msmarco"]
+    _assert(knn_fdef["type"] == "knn_vector",           "embedding_msmarco type = knn_vector")
+    _assert(knn_fdef["dimension"] == EMB_DIM,            f"embedding_msmarco dim = {EMB_DIM}")
     _assert(knn_fdef["method"]["parameters"]["m"] == TEST_SETTINGS.hnsw_m, "hnsw_m correct")
     _assert(knn_fdef["method"]["parameters"]["ef_construction"] == TEST_SETTINGS.ef_construct,
             "ef_construct correct")
 
-    # ---- 4. Create BASELINE index (BM25 default only, 1 KNN field) ---------
-    _section("4 -- create_index() -- baseline mapping")
+    # ---- 4. create_or_update_index() — Branch A: new index -----------------
+    _section("4 -- create_or_update_index() -- Branch A: new index")
 
-    create_index(
+    create_or_update_index(
         client, index_name,
         bm25_k1_b_pairs = [(1.2, 0.75)],
         lmjm_lambdas    = [0.7],
@@ -226,109 +225,104 @@ def run_tests(index_name: str) -> None:
 
     live = get_live_fields(client, index_name)
     _assert(live == expected_fields, f"live fields after create: {live}")
-
-    # idempotency: second create call must not raise, index still there
-    create_index(
-        client, index_name,
-        bm25_k1_b_pairs = [(1.2, 0.75)],
-        lmjm_lambdas    = [0.7],
-        lmdir_mus       = [75],
-        encoders        = BASELINE_ENCODERS,
-        settings        = TEST_SETTINGS,
-    )
-    _assert(client.indices.exists(index=index_name), "index still exists after idempotent create")
-    _pass("create_index() idempotency ok")
+    _pass("Branch A (new index) [ok]")
 
     # ---- 5. Index 10 docs (baseline: 1 KNN field) --------------------------
     _section("5 -- index_documents() -- 10 docs, baseline fields")
 
-    index_documents(client, index_name, MINI_CORPUS, {"embedding": MINI_EMB_A})
+    index_documents(client, index_name, MINI_CORPUS, {"embedding_msmarco": MINI_EMB_A})
     client.indices.refresh(index=index_name)
 
     count = client.count(index=index_name).get("count", 0)
     _assert(count == 10, f"doc count after index = {count}")
 
-    # spot check: fetch one doc and confirm all text fields exist
     hit = client.get(index=index_name, id="TEST_0000")["_source"]
-    _assert("doc_id"            in hit, "doc_id field in source")
-    _assert("contents"          in hit, "contents field in source")
-    _assert("contents_lmjm_07"  in hit, "contents_lmjm_07 field in source")
-    _assert("contents_lmdir_75" in hit, "contents_lmdir_75 field in source")
-    _assert("embedding"         in hit, "embedding field in source")
-    _assert(len(hit["embedding"]) == EMB_DIM, f"embedding has {EMB_DIM} dims")
+    _assert("doc_id"                  in hit, "doc_id field in source")
+    _assert("contents_bm25_k12_b075"  in hit, "contents_bm25_k12_b075 field in source")
+    _assert("contents_lmjm_07"        in hit, "contents_lmjm_07 field in source")
+    _assert("contents_lmdir_75"       in hit, "contents_lmdir_75 field in source")
+    _assert("embedding_msmarco"       in hit, "embedding_msmarco field in source")
+    _assert(len(hit["embedding_msmarco"]) == EMB_DIM, f"embedding_msmarco has {EMB_DIM} dims")
 
-    # ---- 6. Idempotency: second index_documents call must SKIP -------------
+    # ---- 6. index_documents() idempotency ----------------------------------
     _section("6 -- index_documents() idempotency -- same corpus + same fields")
 
-    # capture printed output by hooking into the print logic
     import io, contextlib
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        index_documents(client, index_name, MINI_CORPUS, {"embedding": MINI_EMB_A})
+        index_documents(client, index_name, MINI_CORPUS, {"embedding_msmarco": MINI_EMB_A})
     out = buf.getvalue()
     _assert("Skipping" in out, f"second call was skipped (output: {out.strip()!r})")
 
     count2 = client.count(index=index_name).get("count", 0)
     _assert(count2 == 10, f"doc count still 10 after idempotent call")
 
-    # ---- 7. Verify mapping with verify_mapping() ---------------------------
+    # ---- 7. verify_mapping() -----------------------------------------------
     _section("7 -- verify_mapping() -- must not raise")
     verify_mapping(client, index_name)
     _pass("verify_mapping() ran without error")
 
-    # ---- 8. Full index: delete + recreate with ALL field types -------------
-    _section("8 -- Full index: all field families (BM25 default + tuned + LM-JM + LM-Dir + 2x KNN)")
+    # ---- 8. create_or_update_index() idempotency — Branch B, nothing to add -
+    _section("8 -- create_or_update_index() idempotency -- Branch B: nothing to add")
 
-    delete_index(client, index_name)
-    _assert(not client.indices.exists(index=index_name), "index gone before full create")
+    buf_idem = io.StringIO()
+    with contextlib.redirect_stdout(buf_idem):
+        create_or_update_index(
+            client, index_name,
+            bm25_k1_b_pairs = [(1.2, 0.75)],
+            lmjm_lambdas    = [0.7],
+            lmdir_mus       = [75],
+            encoders        = BASELINE_ENCODERS,
+            settings        = TEST_SETTINGS,
+        )
+    out_idem = buf_idem.getvalue()
+    _assert("already complete" in out_idem, "no-op message when nothing to add")
+    live_idem = get_live_fields(client, index_name)
+    _assert(live_idem == expected_fields, "fields unchanged after idempotent call")
+    _pass("Branch B idempotency [ok]")
 
-    full_fields_expected = {
-        "doc_id",
-        "contents",                    # BM25 default (1.2, 0.75)
-        "contents_bm25_k15_b10",       # BM25 tuned (1.5, 1.0)
-        "contents_lmjm_07",
-        "contents_lmjm_01",
-        "contents_lmdir_75",
-        "contents_lmdir_2000",
-        "embedding",                   # msmarco alias -> "embedding"
-        "embedding_testenc",           # testenc alias
-    }
+    # ---- 9. create_or_update_index() add-fields — Branch B -----------------
+    _section("9 -- create_or_update_index() add-fields -- Branch B: extend existing index")
 
-    create_index(
+    # Add a new BM25 config, a new LM-JM lambda, a new LM-Dir mu, and a 2nd KNN field.
+    # This exercises the close→put_settings→open + put_mapping path.
+    create_or_update_index(
         client, index_name,
-        bm25_k1_b_pairs = [(1.2, 0.75), (1.5, 1.0)],
-        lmjm_lambdas    = [0.7, 0.1],
-        lmdir_mus       = [75, 2000],
-        encoders        = EXTRA_ENCODERS,
+        bm25_k1_b_pairs = [(1.2, 0.75), (1.5, 1.0)],   # (1.5,1.0) is new
+        lmjm_lambdas    = [0.7, 0.1],                   # 0.1 is new
+        lmdir_mus       = [75, 2000],                    # 2000 is new
+        encoders        = EXTRA_ENCODERS,                # testenc is new
         settings        = TEST_SETTINGS,
     )
 
-    live_full = get_live_fields(client, index_name)
-    _assert(live_full == full_fields_expected, f"full live fields: {live_full}")
+    live_extended = get_live_fields(client, index_name)
+    full_fields_expected = {
+        "doc_id",
+        "contents_bm25_k12_b075", "contents_bm25_k15_b10",
+        "contents_lmjm_07",       "contents_lmjm_01",
+        "contents_lmdir_75",      "contents_lmdir_2000",
+        "embedding_msmarco",      "embedding_testenc",
+    }
+    _assert(live_extended == full_fields_expected,
+            f"live fields after add-fields: {live_extended}")
 
-    # get_live_field_types: knn_vector fields must have type "knn_vector"
-    live_types = get_live_field_types(client, index_name)
-    _assert(live_types.get("embedding")          == "knn_vector", "embedding type = knn_vector")
-    _assert(live_types.get("embedding_testenc")  == "knn_vector", "embedding_testenc type = knn_vector")
-    _assert(live_types.get("contents")           == "text",       "contents type = text")
-    _assert(live_types.get("doc_id")             == "keyword",    "doc_id type = keyword")
-
-    # verify tuned BM25 similarity was registered (should be, since 1.5/1.0 != 1.2/0.75)
     raw = client.indices.get_settings(index=index_name)
-    actual_key  = list(raw.keys())[0]
-    live_sims   = raw[actual_key]["settings"]["index"].get("similarity", {})
-    _assert("bm25_k15_b10_similarity" in live_sims, "tuned BM25 similarity registered")
-    _assert("lmjm_07_similarity"      in live_sims, "lmjm_07 similarity registered")
-    _assert("lmjm_01_similarity"      in live_sims, "lmjm_01 similarity registered")
-    _assert("lmdir_75_similarity"     in live_sims, "lmdir_75 similarity registered")
-    _assert("lmdir_2000_similarity"   in live_sims, "lmdir_2000 similarity registered")
+    actual_key = list(raw.keys())[0]
+    live_sims  = raw[actual_key]["settings"]["index"].get("similarity", {})
+    _assert("bm25_k12_b075_similarity" in live_sims, "bm25_k12_b075 similarity registered")
+    _assert("bm25_k15_b10_similarity"  in live_sims, "bm25_k15_b10 similarity registered")
+    _assert("lmjm_07_similarity"       in live_sims, "lmjm_07 similarity registered")
+    _assert("lmjm_01_similarity"       in live_sims, "lmjm_01 similarity registered")
+    _assert("lmdir_75_similarity"      in live_sims, "lmdir_75 similarity registered")
+    _assert("lmdir_2000_similarity"    in live_sims, "lmdir_2000 similarity registered")
+    _pass("Branch B add-fields [ok]")
 
-    # ---- 9. Index 10 docs with 2 KNN fields --------------------------------
-    _section("9 -- index_documents() -- 10 docs, 2 KNN fields")
+    # ---- 10. Index 10 docs with 2 KNN fields --------------------------------
+    _section("10 -- index_documents() -- 10 docs, 2 KNN fields")
 
     index_documents(
         client, index_name, MINI_CORPUS,
-        {"embedding": MINI_EMB_A, "embedding_testenc": MINI_EMB_B},
+        {"embedding_msmarco": MINI_EMB_A, "embedding_testenc": MINI_EMB_B},
     )
     client.indices.refresh(index=index_name)
 
@@ -338,14 +332,12 @@ def run_tests(index_name: str) -> None:
     hit2 = client.get(index=index_name, id="TEST_0005")["_source"]
     for f in full_fields_expected:
         _assert(f in hit2, f"field '{f}' present in source")
-
-    _assert(len(hit2["embedding"])         == EMB_DIM, "embedding dim ok")
+    _assert(len(hit2["embedding_msmarco"]) == EMB_DIM, "embedding_msmarco dim ok")
     _assert(len(hit2["embedding_testenc"]) == EMB_DIM, "embedding_testenc dim ok")
 
-    # ---- 10. New-field detection: add a 3rd KNN field ----------------------
-    _section("10 -- new-field detection -- index_documents must detect missing field")
+    # ---- 11. New-field detection: index_documents must re-index -------------
+    _section("11 -- new-field detection -- index_documents re-indexes on new KNN field")
 
-    # Add 3rd KNN field to the mapping manually via put_mapping
     client.indices.put_mapping(
         index = index_name,
         body  = {
@@ -363,11 +355,9 @@ def run_tests(index_name: str) -> None:
             }
         },
     )
-
     live_after_put = get_live_fields(client, index_name)
     _assert("embedding_extra" in live_after_put, "embedding_extra field added via put_mapping")
 
-    # now call index_documents with the new field included
     MINI_EMB_EXTRA = np.random.randn(10, EMB_DIM).astype(np.float32)
     MINI_EMB_EXTRA = MINI_EMB_EXTRA / np.linalg.norm(MINI_EMB_EXTRA, axis=1, keepdims=True)
 
@@ -376,35 +366,55 @@ def run_tests(index_name: str) -> None:
         index_documents(
             client, index_name, MINI_CORPUS,
             {
-                "embedding":          MINI_EMB_A,
-                "embedding_testenc":  MINI_EMB_B,
-                "embedding_extra":    MINI_EMB_EXTRA,
+                "embedding_msmarco": MINI_EMB_A,
+                "embedding_testenc": MINI_EMB_B,
+                "embedding_extra":   MINI_EMB_EXTRA,
             },
         )
     out2 = buf2.getvalue()
-    # should NOT skip — "embedding_extra" was missing from all existing docs
     _assert("Skipping" not in out2, "re-index triggered when new KNN field added")
     _assert("re-index" in out2.lower() or "new field" in out2.lower(),
             "log mentions new field or re-index")
 
     client.indices.refresh(index=index_name)
     hit3 = client.get(index=index_name, id="TEST_0000")["_source"]
-    _assert("embedding_extra" in hit3, "embedding_extra populated after re-index")
+    _assert("embedding_extra" in hit3,            "embedding_extra populated after re-index")
     _assert(len(hit3["embedding_extra"]) == EMB_DIM, "embedding_extra dim ok")
 
-    # ---- 11. Shape mismatch guard ------------------------------------------
-    _section("11 -- embeddings_map shape mismatch must raise ValueError")
+    # ---- 12. Shape mismatch guard ------------------------------------------
+    _section("12 -- embeddings_map shape mismatch must raise ValueError")
     bad_emb = np.zeros((5, EMB_DIM), dtype=np.float32)   # 5 rows, corpus has 10
     raised = False
     try:
-        index_documents(client, index_name, MINI_CORPUS, {"embedding": bad_emb})
+        index_documents(client, index_name, MINI_CORPUS, {"embedding_msmarco": bad_emb})
     except ValueError as e:
         raised = True
         _pass(f"ValueError raised as expected: {e}")
     _assert(raised, "ValueError raised for shape mismatch")
 
-    # ---- 12. Clean up -------------------------------------------------------
-    _section("12 -- cleanup: delete test index")
+    # ---- 13. KNN dim mismatch warning in create_or_update_index ------------
+    _section("13 -- KNN dim mismatch warning -- create_or_update_index warns, does not crash")
+
+    # Request a KNN encoder with a DIFFERENT dim than what's in the live index (EMB_DIM).
+    WRONG_DIM = EMB_DIM + 4
+    buf3 = io.StringIO()
+    with contextlib.redirect_stdout(buf3):
+        create_or_update_index(
+            client, index_name,
+            bm25_k1_b_pairs = [(1.2, 0.75)],
+            lmjm_lambdas    = [0.7],
+            lmdir_mus       = [75],
+            encoders        = [("msmarco", "some/model", WRONG_DIM)],
+            settings        = TEST_SETTINGS,
+        )
+    out3 = buf3.getvalue()
+    _assert("dim mismatch" in out3.lower() or "mismatch" in out3.lower(),
+            f"dim mismatch warning printed (got: {out3.strip()!r})")
+    _assert(client.indices.exists(index=index_name), "index still exists after mismatch warning")
+    _pass("KNN dim mismatch warning [ok]")
+
+    # ---- 14. Clean up -------------------------------------------------------
+    _section("14 -- cleanup: delete test index")
     delete_index(client, index_name)
     _assert(not client.indices.exists(index=index_name), "index gone after final delete")
 

@@ -1,48 +1,33 @@
-"""
-src/retrieval/bm25.py
-
-BM25 retriever — match query on the `contents` field (BM25 similarity).
-
-Pattern from Lab01 search cell (lines 297-319): match query, size explicit, _source doc_id only.
-"""
-
-import os
-import sys
-from pathlib import Path
 
 from opensearchpy import OpenSearch
 
-from src.retrieval.base import BaseRetriever
+from src.indexing.index_builder import float_tag
+from src.retrieval.base import SparseRetriever
 
 
-class BM25Retriever(BaseRetriever):
-    """BM25 retrieval using OpenSearch's built-in BM25 similarity on the `contents` field."""
+class BM25Retriever(SparseRetriever):
+    """
+    BM25 retrieval on a pre-built contents_bm25_k{k1tag}_b{btag} field.
+    All (k1, b) combinations follow the same naming -- no special 'contents' default.
+    """
 
-    def __init__(self, client: OpenSearch, index_name: str):
-        self.client = client
-        self.index_name = index_name
+    _DEFAULT_K1 = 1.2
+    _DEFAULT_B  = 0.75
 
-    # Run BM25 match query on the contents field; returns top-size (pmid, score) pairs.
-    def search(self, query: str, size: int = 100) -> list[tuple[str, float]]:
-        query_body = {
-            "size": size,
-            "_source": ["doc_id"],
-            "query": {
-                "match": {
-                    "contents": {
-                        "query": query
-                    }
-                }
-            },
-        }
-        response = self.client.search(body=query_body, index=self.index_name)
-        hits = response["hits"]["hits"]
-        return [(h["_source"]["doc_id"], h["_score"]) for h in hits]
+    def __init__(
+        self,
+        client: OpenSearch,
+        index_name: str,
+        k1: float = _DEFAULT_K1,
+        b:  float = _DEFAULT_B,
+    ):
+        field = f"contents_bm25_k{float_tag(k1)}_b{float_tag(b)}"
+        super().__init__(client, index_name, field=field)
 
 
-# ---------------------------------------------------------------------------
-# Self-test: python -m src.retrieval.bm25
-# ---------------------------------------------------------------------------
+#################################################################
+##                  LOCAL TEST                                 ##
+#################################################################
 if __name__ == "__main__":
     print("=" * 60)
     print("BM25 Retriever — self-test")
@@ -57,12 +42,12 @@ if __name__ == "__main__":
     index_name = os.getenv("OPENSEARCH_INDEX", "")
 
     retriever = BM25Retriever(client, index_name)
+    print(f"  field : {retriever.field}")
 
     test_query = "obstructive sleep apnea treatment"
     print(f"\nQuery: '{test_query}'")
     results = retriever.search(test_query, size=100)
 
-    # basic assertions
     assert isinstance(results, list), "Result must be a list"
     assert len(results) == 100, f"Expected 100 results, got {len(results)}"
     scores = [s for _, s in results]
@@ -78,3 +63,5 @@ if __name__ == "__main__":
         print(f"    PMID={pmid}  score={score:.4f}")
 
     print("\n  All BM25 assertions passed.")
+
+

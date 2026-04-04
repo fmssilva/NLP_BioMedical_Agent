@@ -1,23 +1,6 @@
 """
-src/data/__loader_test.py
-
-Comprehensive tests for loader.py and splitter.py.
-
-Tests:
-  loader.py:
-    - load_corpus: size=10 (fast), full corpus (4194), size param works correctly
-    - load_topics: all 65 topics, expected IDs 116-180, required fields present
-    - Doc structure: each doc has 'id' (str) and 'contents' (non-empty str)
-    - size param: partial load matches beginning of full corpus
-  splitter.py:
-    - Odd/even split rule is deterministic and covers all topics
-    - No overlap between train and test
-    - Output files are valid JSON with expected structure
-    - Idempotent: run twice, files are identical
-
-Run with:
-    cd C:\\Users\\franc\\Desktop\\NLP_Biomedical_Agent
-    C:/Users/franc/anaconda3/envs/cnn/python.exe -m src.data.__loader_test
+Local tests for loader.py and splitter.py.
+Run with: python -m src.data.__loader_test
 """
 
 import json

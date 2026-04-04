@@ -5,6 +5,12 @@ from collections import Counter
 from src.data.loader import load_corpus
 
 
+######################################################################
+## Qrels builder — parse biogen_2024_submissions.json into graded
+## and binary relevance judgements (TREC qrels format).
+######################################################################
+
+
 # Default graded relevance mapping for local testing
 _DEFAULT_GRADED_SCORE = {
     "supporting":       2,  # cited as clear evidence support
@@ -62,7 +68,7 @@ def build_qrels_graded(
                         skipped_oor.append((qid, pmid))
                         continue
 
-                    # keep highest score seen for this PMID
+                    # keep highest score seen for this PMID for this topic across all citations/systems
                     score = graded_score.get(rel, 0)
                     if score > pmid_scores.get(pmid, 0):
                         pmid_scores[pmid] = score
@@ -84,13 +90,16 @@ def build_qrels_graded(
     return qrels
 
 
-# Binary qrels derived from graded: just filter score >= binary_threshold.
 def build_qrels(
     submissions_path: str | Path,
     corpus_pmids: set | None = None,
     graded_score: dict | None = None,
     binary_threshold: int = _DEFAULT_BINARY_THRESHOLD,
 ) -> dict:
+    """
+    Binary qrels derived from graded: filter score >= binary_threshold.
+    Returns {topic_id: {pmid: 1}} for all PMIDs with score >= threshold.
+    """
     graded = build_qrels_graded(
         submissions_path,
         corpus_pmids=corpus_pmids,
@@ -104,8 +113,10 @@ def build_qrels(
 
 
 
-# Save qrels dict to disk as JSON.
 def save_qrels(qrels: dict, output_path: str | Path) -> None:
+    """
+    Save qrels dict to disk as JSON.
+    """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
@@ -113,14 +124,16 @@ def save_qrels(qrels: dict, output_path: str | Path) -> None:
     print(f"qrels saved to {output_path}  ({len(qrels)} topics)")
 
 
-# Print a human-readable summary of the built qrels.
-# Shows raw citation distribution, score breakdown, per-topic stats, sample topic.
 def print_qrels_summary(
     qrels_graded: dict,
     qrels_binary: dict,
     submissions_path: str | Path,
     binary_threshold: int = _DEFAULT_BINARY_THRESHOLD,
 ) -> None:
+    """
+    Print a summary of the built qrels.
+    Shows raw citation distribution, score breakdown, per-topic stats, sample topic.
+    """
     # -- raw citation distribution (all systems/topics, before corpus filter) --
     rel_counter: Counter = Counter()
     with open(submissions_path, encoding="utf-8") as f:
@@ -231,5 +244,8 @@ def run_qrels_builder(
     return qrels, qrels_graded
 
 
+#################################################################
+##                  LOCAL TEST                                 ##
+#################################################################
 if __name__ == "__main__":
     run_qrels_builder()

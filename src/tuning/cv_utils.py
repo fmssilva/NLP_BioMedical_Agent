@@ -3,20 +3,20 @@ src/tuning/cv_utils.py
 
 K-fold cross-validation utilities for IR hyperparameter tuning.
 
-The train set has only 32 topics — a single train/val split gives noisy MAP estimates
-because one "hard" topic in the val set can swing MAP by ±0.02. K-fold CV averages
-over multiple splits to give a more robust estimate.
+The train set has only 32 topics — a single train/val split gives noisy estimates
+because one "hard" topic can swing scores by +-0.02. K-fold CV averages over
+multiple splits for a more robust estimate.
 
-For retrieval hyperparameters (BM25 k1/b, LM-Dir μ), we just split the TOPICS into
-folds and measure MAP on the held-out fold with each hyperparameter setting. No
-training occurs — just evaluation with different parameter values.
+Primary selection criterion: NDCG@100 (graded qrels, supporting=2/neutral=1).
+This is what the project guide explicitly requires as the ranking quality metric.
+MAP is computed and shown alongside but is not the sort key.
 
 Public API:
-    make_folds(topics, n_folds=5)           -> list of (train_fold, val_fold)
-    evaluate_fold(retriever, val_topics, qrels, all_doc_ids, query_field)
-                                            -> {"MAP": float, "MRR": float, "P@10": float}
-    run_cv(retriever_factory, topics, qrels, all_doc_ids, query_field, n_folds=5)
-                                            -> {"map_per_fold": [...], "mean_map": float, "std_map": float}
+    make_folds(topics, n_folds=5)          -> list of (train_fold, val_fold)
+    evaluate_fold(retriever, val_topics, qrels, qrels_graded, all_doc_ids, query_field)
+                                           -> {"NDCG@100": float, "MAP": float, ...}
+    run_cv(retriever_factory, topics, qrels, qrels_graded, all_doc_ids, ...)
+                                           -> {"ndcg_per_fold": [...], "mean_ndcg": float, ...}
 """
 
 import logging
@@ -24,14 +24,17 @@ import math
 
 import numpy as np
 
-from src.evaluation.evaluator import build_query
+from src.data.query_builder import build_query
 from src.evaluation.metrics import (
     average_precision,
     mean_average_precision,
+    mean_ndcg_at_k,
     mean_reciprocal_rank,
+    ndcg_at_k,
     precision_at_k,
     reciprocal_rank,
     results_to_ranking,
+    results_to_ranking_graded,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,90 +45,80 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def make_folds(topics: list[dict], n_folds: int = 5) -> list[tuple[list[dict], list[dict]]]:
-    """
-    Split topics into n_folds (train_fold, val_fold) pairs.
-
-    Topics are shuffled by their ID to ensure stable, reproducible splits.
-    With 32 train topics and 5 folds: 4 folds of 6 topics + 1 fold of 8 topics.
-
-    Args:
-        topics:  list of topic dicts with "id" key.
-        n_folds: number of folds (default 5).
-
-    Returns:
-        list of (train_topics, val_topics) tuples — one per fold.
-    """
-    # sort by ID for reproducibility (not random)
+    """Split topics into n_folds (train_fold, val_fold) pairs, sorted by ID for reproducibility."""
     sorted_topics = sorted(topics, key=lambda t: t["id"])
     n = len(sorted_topics)
-
-    folds = []
     fold_size = math.ceil(n / n_folds)
-
+    folds = []
     for fold_idx in range(n_folds):
         start = fold_idx * fold_size
         end   = min(start + fold_size, n)
-
-        val_topics   = sorted_topics[start:end]
-        train_topics = sorted_topics[:start] + sorted_topics[end:]
-
-        folds.append((train_topics, val_topics))
-
+        val   = sorted_topics[start:end]
+        train = sorted_topics[:start] + sorted_topics[end:]
+        folds.append((train, val))
     return folds
 
 
 # ---------------------------------------------------------------------------
-# Single-fold evaluation (no training — just measure MAP on val topics)
+# Single-fold evaluation
 # ---------------------------------------------------------------------------
 
 def evaluate_fold(
     retriever,
-    val_topics: list[dict],
-    qrels: dict[str, dict],
-    all_doc_ids: list[str],
-    query_field: str = "concatenated",
-    size: int = 100,
+    val_topics:   list[dict],
+    qrels:        dict[str, dict],
+    qrels_graded: dict[str, dict],
+    all_doc_ids:  list[str],
+    query_field:  str = "concatenated",
+    size:         int = 100,
 ) -> dict:
     """
-    Evaluate a retriever on a set of topics and return aggregate metrics.
-
-    For retrieval hyperparameter tuning, the "retriever" is already configured
-    with the hyperparameter value being tested — this function just runs it.
+    Evaluate a retriever on a held-out fold. Primary metric: NDCG@100 (graded qrels).
 
     Args:
-        retriever:    a retriever with .search(query, size) -> [(pmid, score), ...]
-        val_topics:   topics to evaluate on (the held-out fold)
-        qrels:        {topic_id: {pmid: 1}} relevance judgements
-        all_doc_ids:  full list of corpus doc IDs (for results_to_ranking)
+        retriever:    retriever with .search(query, size) -> [(pmid, score), ...]
+        val_topics:   held-out topics for this fold
+        qrels:        {topic_id: {pmid: 1}} binary qrels (for MAP/MRR)
+        qrels_graded: {topic_id: {pmid: 0/1/2}} graded qrels (for NDCG@100)
+        all_doc_ids:  full corpus doc ID list
         query_field:  "topic", "question", or "concatenated"
-        size:         number of results to retrieve per query
+        size:         number of docs to retrieve per query
 
     Returns:
-        {"MAP": float, "MRR": float, "P@10": float, "per_query": {topic_id: {AP, RR, P@10}}}
+        {"NDCG@100": float, "MAP": float, "MRR": float, "P@10": float, "per_query": {...}}
     """
-    all_queries = []
-    per_query = {}
+    all_binary = []
+    all_graded = []
+    per_query  = {}
 
     for topic in val_topics:
-        topic_id = str(topic["id"])
-        qrels_set = set(qrels.get(topic_id, {}).keys())
+        tid       = str(topic["id"])
+        qrels_set = set(qrels.get(tid, {}).keys())
 
-        query = build_query(topic, query_field)
-        results = retriever.search(query, size=size)
+        results = retriever.search(build_query(topic, query_field), size=size)
 
+        # binary path — MAP/MRR
         relevance, ranking = results_to_ranking(results, qrels_set, all_doc_ids)
-        all_queries.append((relevance, ranking))
+        all_binary.append((relevance, ranking))
 
-        per_query[topic_id] = {
-            "AP":   average_precision(ranking, relevance),
-            "RR":   reciprocal_rank(ranking, relevance),
-            "P@10": precision_at_k(ranking, relevance, 10),
+        # graded path — NDCG@100
+        scores_g, ranking_g = results_to_ranking_graded(
+            results, qrels_graded.get(tid, {}), all_doc_ids
+        )
+        all_graded.append((scores_g, ranking_g))
+
+        per_query[tid] = {
+            "NDCG@100": ndcg_at_k(ranking_g, scores_g, 100),
+            "AP":      average_precision(ranking, relevance),
+            "RR":      reciprocal_rank(ranking, relevance),
+            "P@10":    precision_at_k(ranking, relevance, 10),
         }
 
     return {
-        "MAP":       mean_average_precision(all_queries),
-        "MRR":       mean_reciprocal_rank(all_queries),
-        "P@10":      float(np.mean([v["P@10"] for v in per_query.values()])) if per_query else 0.0,
+        "NDCG@100": mean_ndcg_at_k(all_graded, k=100),
+        "MAP":     mean_average_precision(all_binary),
+        "MRR":     mean_reciprocal_rank(all_binary),
+        "P@10":    float(np.mean([v["P@10"] for v in per_query.values()])) if per_query else 0.0,
         "per_query": per_query,
     }
 
@@ -136,36 +129,37 @@ def evaluate_fold(
 
 def run_cv(
     retriever_factory,
-    topics: list[dict],
-    qrels: dict[str, dict],
-    all_doc_ids: list[str],
-    query_field: str = "concatenated",
-    n_folds: int = 5,
-    size: int = 100,
-    verbose: bool = True,
+    topics:       list[dict],
+    qrels:        dict[str, dict],
+    qrels_graded: dict[str, dict],
+    all_doc_ids:  list[str],
+    query_field:  str = "concatenated",
+    n_folds:      int = 5,
+    size:         int = 100,
+    verbose:      bool = True,
 ) -> dict:
     """
-    Run k-fold cross-validation for a retriever configuration.
-
-    retriever_factory is a CALLABLE that creates a fresh retriever instance.
-    It is called once per fold. This allows stateless retrievers to be
-    instantiated with different parameters per call.
+    K-fold CV for a retriever. Primary criterion: NDCG@100. MAP also tracked.
 
     Args:
-        retriever_factory: callable () -> retriever (e.g. lambda: BM25Retriever(client, index))
-        topics:            train topics to split (usually 32 odd-ID topics)
-        qrels:             relevance judgements
+        retriever_factory: callable () -> retriever
+        topics:            train topics (32 odd-ID topics)
+        qrels:             binary qrels {topic_id: {pmid: 1}}
+        qrels_graded:      graded qrels {topic_id: {pmid: 0/1/2}}
         all_doc_ids:       full corpus doc ID list
         query_field:       query formulation field
-        n_folds:           number of folds (default 5)
+        n_folds:           number of folds
         size:              results per query
-        verbose:           print fold-by-fold MAP if True
+        verbose:           log fold-by-fold scores
 
     Returns:
         {
-            "map_per_fold":  [float, ...],   # MAP for each held-out fold
+            "ndcg_per_fold": [float, ...],  # NDCG@100 for each fold (primary metric)
+            "map_per_fold":  [float, ...],
             "mrr_per_fold":  [float, ...],
             "p10_per_fold":  [float, ...],
+            "mean_ndcg":     float,         # sort key in sweepers
+            "std_ndcg":      float,
             "mean_map":      float,
             "std_map":       float,
             "mean_mrr":      float,
@@ -174,29 +168,34 @@ def run_cv(
     """
     folds = make_folds(topics, n_folds)
 
+    ndcg_per_fold = []
     map_per_fold  = []
     mrr_per_fold  = []
     p10_per_fold  = []
 
-    for fold_idx, (train_fold, val_fold) in enumerate(folds):
-        retriever = retriever_factory()
-        result = evaluate_fold(retriever, val_fold, qrels, all_doc_ids, query_field, size)
-
+    for fold_idx, (_, val_fold) in enumerate(folds):
+        result = evaluate_fold(
+            retriever_factory(), val_fold, qrels, qrels_graded, all_doc_ids, query_field, size
+        )
+        ndcg_per_fold.append(result["NDCG@100"])
         map_per_fold.append(result["MAP"])
         mrr_per_fold.append(result["MRR"])
         p10_per_fold.append(result["P@10"])
 
         if verbose:
             logger.info(
-                "Fold %d/%d — val topics: %d — MAP=%.4f  MRR=%.4f  P@10=%.4f",
+                "Fold %d/%d  val=%d  NDCG@100=%.4f  MAP=%.4f  MRR=%.4f",
                 fold_idx + 1, n_folds, len(val_fold),
-                result["MAP"], result["MRR"], result["P@10"],
+                result["NDCG@100"], result["MAP"], result["MRR"],
             )
 
     return {
+        "ndcg_per_fold": ndcg_per_fold,
         "map_per_fold":  map_per_fold,
         "mrr_per_fold":  mrr_per_fold,
         "p10_per_fold":  p10_per_fold,
+        "mean_ndcg":     float(np.mean(ndcg_per_fold)),
+        "std_ndcg":      float(np.std(ndcg_per_fold)),
         "mean_map":      float(np.mean(map_per_fold)),
         "std_map":       float(np.std(map_per_fold)),
         "mean_mrr":      float(np.mean(mrr_per_fold)),
@@ -222,8 +221,10 @@ if __name__ == "__main__":
     # Load train topics and qrels
     with open(ROOT / "results" / "splits" / "train_queries.json") as f:
         train_topics = json.load(f)
-    with open(ROOT / "results" / "qrels.json") as f:
+    with open(ROOT / "results" / "qrels" / "qrels.json") as f:
         qrels = json.load(f)
+    with open(ROOT / "results" / "qrels" / "qrels_graded.json") as f:
+        qrels_graded = json.load(f)
 
     from src.data.loader import load_corpus
     corpus = load_corpus(ROOT / "data" / "filtered_pubmed_abstracts.txt")
@@ -236,7 +237,7 @@ if __name__ == "__main__":
     index_name = os.getenv("OPENSEARCH_INDEX", "")
 
     print("=" * 60)
-    print("cv_utils self-test — BM25 5-fold CV on train set")
+    print("cv_utils self-test -- BM25 5-fold CV on train set")
     print("=" * 60)
 
     folds = make_folds(train_topics, n_folds=5)
@@ -247,11 +248,13 @@ if __name__ == "__main__":
 
     print("\nRunning BM25 5-fold CV (this takes ~30s)...")
     factory = lambda: BM25Retriever(client, index_name)
-    cv = run_cv(factory, train_topics, qrels, all_doc_ids, verbose=True)
+    cv = run_cv(factory, train_topics, qrels, qrels_graded, all_doc_ids, verbose=True)
 
     print(f"\nBM25 CV Results:")
-    print(f"  MAP per fold: {[f'{v:.4f}' for v in cv['map_per_fold']]}")
-    print(f"  Mean MAP:     {cv['mean_map']:.4f} ± {cv['std_map']:.4f}")
-    print(f"  Mean MRR:     {cv['mean_mrr']:.4f}")
-    print(f"  Mean P@10:    {cv['mean_p10']:.4f}")
+    print(f"  NDCG@100 per fold : {[f'{v:.4f}' for v in cv['ndcg_per_fold']]}")
+    print(f"  Mean NDCG@100     : {cv['mean_ndcg']:.4f} +/- {cv['std_ndcg']:.4f}")
+    print(f"  MAP per fold     : {[f'{v:.4f}' for v in cv['map_per_fold']]}")
+    print(f"  Mean MAP         : {cv['mean_map']:.4f} +/- {cv['std_map']:.4f}")
+    print(f"  Mean MRR         : {cv['mean_mrr']:.4f}")
+    print(f"  Mean P@10        : {cv['mean_p10']:.4f}")
     print("\n[ok] cv_utils self-test passed")

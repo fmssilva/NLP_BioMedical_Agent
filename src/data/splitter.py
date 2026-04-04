@@ -7,15 +7,19 @@ from src.data.loader import load_topics
 _ROOT = Path(__file__).resolve().parents[2]
 
 
-# Split topics into train (odd IDs) and test (even IDs). Fixed forever — never change this.
 def split_queries(topics: list[dict]) -> tuple[list[dict], list[dict]]:
+    """
+    Split topics into train (odd IDs) and test (even IDs). 
+    """
     train = [t for t in topics if t["id"] % 2 == 1]
     test  = [t for t in topics if t["id"] % 2 == 0]
     return train, test
 
 
-# Save train/test splits to disk as JSON.
 def save_splits(train: list[dict], test: list[dict], output_dir: str | Path) -> None:
+    """
+    Save train/test splits to disk as JSON.
+    """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     with open(output_dir / "train_queries.json", "w", encoding="utf-8") as f:
@@ -26,7 +30,6 @@ def save_splits(train: list[dict], test: list[dict], output_dir: str | Path) -> 
 
 
 
-# Generate and save train/test splits. Always overwrites existing files.
 def run_splitter(
     topics_path: str | Path = _ROOT / "data" / "BioGen2024topics.json",
     splits_dir:  str | Path = _ROOT / "results" / "splits",

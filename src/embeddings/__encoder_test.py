@@ -1,25 +1,23 @@
 """
-src/embeddings/__encoder_test.py
-
-Comprehensive tests for encoder.py and corpus_encoder.py using CORPUS_SIZE=10.
+Local tests for encoder.py and corpus_encoder.py using CORPUS_SIZE=10.
 
 Tests:
   encoder.py:
     - Encoder loads, encode() shape (N, 768), L2 norms ~1.0
     - encode_single shape (768,), consistent with encode([text])[0]
     - Cosine sim of same text == 1.0; different texts < 0.99
-    - resolve_model_name: aliases -> full IDs, full IDs pass through
+    - Encoder accepts (alias, hf_model_id) tuple directly
 
   corpus_encoder.py — single model:
     - encode_corpus shape + L2 norms
     - save/load roundtrip
-    - create_embeddings returns list[(alias, ndarray)] with 1 entry
+    - create_embeddings returns list[(alias, model_name, ndarray)] with 1 entry
     - Cache hit: second call loads file, no re-encode
     - force=True: re-encodes even if file exists, same vectors
     - alias used as file name (not the full model ID)
 
   corpus_encoder.py — multi-model:
-    - 2 aliases -> 2 entries, correct order preserved
+    - 2 tuples -> 2 entries, correct order preserved
     - Each alias -> its own .npy file (name-file alignment)
     - Same model under different aliases -> same vectors (consistency)
     - Each alias file holds only its own vectors (no cross-contamination)
@@ -27,9 +25,7 @@ Tests:
     - All returned arrays have correct shapes and L2 norms
     - embeddings_map built from results has correct field names for index_documents
 
-Run with:
-    cd C:\\Users\\franc\\Desktop\\NLP_Biomedical_Agent
-    C:/Users/franc/anaconda3/envs/cnn/python.exe -m src.embeddings.__encoder_test
+Run with: python -m src.embeddings.__encoder_test
 """
 
 import sys
@@ -52,15 +48,17 @@ CORPUS_SIZE  = 10
 CORPUS_PATH  = _ROOT / "data" / "filtered_pubmed_abstracts.txt"
 EXPECTED_DIM = 768
 
-# alias -> full HF model ID  (mirrors ENCODER_MAP in the notebook constants)
-MODEL_MAP = {
-    "msmarco":  "sentence-transformers/msmarco-distilbert-base-v2",
-    "medcpt":   "ncbi/MedCPT-Query-Encoder",
-    "multi-qa": "sentence-transformers/multi-qa-mpnet-base-cos-v1",
-}
-def resolve_model_name(alias: str) -> str:
-    return MODEL_MAP.get(alias, alias)
-    
+# KNN encoder tuples — same pattern as the notebook constants: (alias, hf_model_id, dim)
+ENCODER_MS_MARCO = ("msmarco",  "sentence-transformers/msmarco-distilbert-base-v2",   768)
+ENCODER_MED_CPT  = ("medcpt",   "ncbi/MedCPT-Query-Encoder",                          768)
+ENCODER_MULTI_QA = ("multi-qa", "sentence-transformers/multi-qa-mpnet-base-cos-v1",   768)
+ENCODERS_LIST    = [ENCODER_MS_MARCO, ENCODER_MED_CPT, ENCODER_MULTI_QA]
+
+# Reusable msmarco tuple with a different alias — used in multi-model tests
+# to avoid downloading extra models in CI (both aliases point to the same HF model)
+_ALIAS_A = ("alias_A", "sentence-transformers/msmarco-distilbert-base-v2", 768)
+_ALIAS_B = ("alias_B", "sentence-transformers/msmarco-distilbert-base-v2", 768)
+
 
 # load corpus + encoder once; all tests reuse them to stay fast
 _corpus10 = None
@@ -79,19 +77,18 @@ def _get_encoder():
     return _enc
 
 
-# ── resolve_model_name ────────────────────────────────────────────────────
+# ── Encoder accepts tuple directly ───────────────────────────────────────
 
-def test_resolve_aliases():
-    assert resolve_model_name("msmarco")  == "sentence-transformers/msmarco-distilbert-base-v2"
-    assert resolve_model_name("medcpt")   == "ncbi/MedCPT-Query-Encoder"
-    assert resolve_model_name("multi-qa") == "sentence-transformers/multi-qa-mpnet-base-cos-v1"
-    print("  [ok]  resolve_model_name: all 3 aliases map to correct full IDs")
+def test_encoder_tuple_input():
+    enc = Encoder(ENCODER_MS_MARCO)
+    assert enc.model_name == ENCODER_MS_MARCO[1], f"model_name wrong: {enc.model_name}"
+    assert enc.model is not None and enc.tokenizer is not None
+    print(f"  [ok]  Encoder(tuple) loads model '{ENCODER_MS_MARCO[1]}'")
 
-def test_resolve_passthrough():
-    full = "sentence-transformers/msmarco-distilbert-base-v2"
-    assert resolve_model_name(full) == full
-    assert resolve_model_name("some/unknown") == "some/unknown"
-    print("  [ok]  resolve_model_name: full IDs / unknowns pass through unchanged")
+def test_encoder_string_input():
+    enc = Encoder(ENCODER_MS_MARCO[1])
+    assert enc.model_name == ENCODER_MS_MARCO[1]
+    print(f"  [ok]  Encoder(str) still works as before")
 
 
 # ── Encoder class ─────────────────────────────────────────────────────────
@@ -164,11 +161,11 @@ def test_save_load_roundtrip():
 
 def test_single_model_returns_list_of_one():
     with tempfile.TemporaryDirectory() as tmp:
-        results = create_embeddings(_get_corpus(), ["msmarco"], MODEL_MAP, tmp, batch_size=CORPUS_SIZE)
+        results = create_embeddings(_get_corpus(), [ENCODER_MS_MARCO], tmp, batch_size=CORPUS_SIZE)
         assert isinstance(results, list) and len(results) == 1
         alias, model_name, vecs = results[0]
-        assert alias == "msmarco",                       f"alias wrong: {alias}"
-        assert model_name == MODEL_MAP["msmarco"],       f"model_name wrong: {model_name}"
+        assert alias == "msmarco",              f"alias wrong: {alias}"
+        assert model_name == ENCODER_MS_MARCO[1], f"model_name wrong: {model_name}"
         assert vecs.shape == (CORPUS_SIZE, EXPECTED_DIM)
         assert np.allclose(np.linalg.norm(vecs, axis=1), 1.0, atol=1e-5)
     print(f"  [ok]  single model: list[(alias, model_name, ndarray)], 1 entry, correct alias+shape+norms")
@@ -176,26 +173,26 @@ def test_single_model_returns_list_of_one():
 def test_single_model_creates_npy_file():
     # file must be named {alias}.npy, NOT derived from the full model ID
     with tempfile.TemporaryDirectory() as tmp:
-        create_embeddings(_get_corpus(), ["msmarco"], MODEL_MAP, tmp, batch_size=CORPUS_SIZE)
+        create_embeddings(_get_corpus(), [ENCODER_MS_MARCO], tmp, batch_size=CORPUS_SIZE)
         assert (Path(tmp) / "msmarco.npy").exists(), "msmarco.npy not created"
     print(f"  [ok]  single model: cache file named 'msmarco.npy' (alias, not full model ID)")
 
 def test_single_model_cache_hit():
     with tempfile.TemporaryDirectory() as tmp:
-        r1 = create_embeddings(_get_corpus(), ["msmarco"], MODEL_MAP, tmp, batch_size=CORPUS_SIZE)
+        r1 = create_embeddings(_get_corpus(), [ENCODER_MS_MARCO], tmp, batch_size=CORPUS_SIZE)
         _, _, v1 = r1[0]
-        r2 = create_embeddings(_get_corpus(), ["msmarco"], MODEL_MAP, tmp, batch_size=CORPUS_SIZE)
+        r2 = create_embeddings(_get_corpus(), [ENCODER_MS_MARCO], tmp, batch_size=CORPUS_SIZE)
         _, _, v2 = r2[0]
         assert np.allclose(v1, v2, atol=1e-7), "cached vectors differ from original"
     print(f"  [ok]  single model: second call loads cache, vectors identical")
 
 def test_single_model_force_reencode():
     with tempfile.TemporaryDirectory() as tmp:
-        r1 = create_embeddings(_get_corpus(), ["msmarco"], MODEL_MAP, tmp, batch_size=CORPUS_SIZE)
+        r1 = create_embeddings(_get_corpus(), [ENCODER_MS_MARCO], tmp, batch_size=CORPUS_SIZE)
         _, _, v1 = r1[0]
         # overwrite with zeros to confirm force=True replaces it
         np.save(Path(tmp) / "msmarco.npy", np.zeros_like(v1))
-        r2 = create_embeddings(_get_corpus(), ["msmarco"], MODEL_MAP, tmp, batch_size=CORPUS_SIZE, force=True)
+        r2 = create_embeddings(_get_corpus(), [ENCODER_MS_MARCO], tmp, batch_size=CORPUS_SIZE, force=True)
         _, _, v2 = r2[0]
         assert not np.allclose(v2, 0.0),       "force=True still returned zeros — encoder did not run"
         assert np.allclose(v1, v2, atol=1e-5), "force re-encode produced different vectors"
@@ -203,90 +200,68 @@ def test_single_model_force_reencode():
 
 
 # ── create_embeddings — multi-model ──────────────────────────────────────
-# use two aliases that both resolve to msmarco to avoid downloading medcpt in CI
+# _ALIAS_A and _ALIAS_B both point to the msmarco HF model to avoid
+# downloading extra models in CI, while testing different alias names.
 
 def test_multi_model_returns_correct_count():
-    fake_map = {
-        "alias_A": "sentence-transformers/msmarco-distilbert-base-v2",
-        "alias_B": "sentence-transformers/msmarco-distilbert-base-v2",
-    }
     with tempfile.TemporaryDirectory() as tmp:
-        results = create_embeddings(_get_corpus(), ["alias_A", "alias_B"], fake_map, tmp, batch_size=CORPUS_SIZE)
+        results = create_embeddings(_get_corpus(), [_ALIAS_A, _ALIAS_B], tmp, batch_size=CORPUS_SIZE)
         assert len(results) == 2, f"expected 2 results, got {len(results)}"
-    print(f"  [ok]  multi-model: 2 aliases -> 2 entries in results list")
+    print(f"  [ok]  multi-model: 2 tuples -> 2 entries in results list")
 
 def test_multi_model_order_preserved():
-    # returned list must be in same order as input aliases list
-    fake_map = {
-        "first":  "sentence-transformers/msmarco-distilbert-base-v2",
-        "second": "sentence-transformers/msmarco-distilbert-base-v2",
-    }
+    _FIRST  = ("first",  "sentence-transformers/msmarco-distilbert-base-v2", 768)
+    _SECOND = ("second", "sentence-transformers/msmarco-distilbert-base-v2", 768)
     with tempfile.TemporaryDirectory() as tmp:
-        results = create_embeddings(_get_corpus(), ["first", "second"], fake_map, tmp, batch_size=CORPUS_SIZE)
+        results = create_embeddings(_get_corpus(), [_FIRST, _SECOND], tmp, batch_size=CORPUS_SIZE)
         assert results[0][0] == "first",  f"expected 'first', got '{results[0][0]}'"
         assert results[1][0] == "second", f"expected 'second', got '{results[1][0]}'"
     print(f"  [ok]  multi-model: return order matches input order ['first','second']")
 
 def test_multi_model_file_names():
-    # each alias -> its own {alias}.npy (not overwriting each other)
-    fake_map = {
-        "alpha": "sentence-transformers/msmarco-distilbert-base-v2",
-        "beta":  "sentence-transformers/msmarco-distilbert-base-v2",
-    }
+    _ALPHA = ("alpha", "sentence-transformers/msmarco-distilbert-base-v2", 768)
+    _BETA  = ("beta",  "sentence-transformers/msmarco-distilbert-base-v2", 768)
     with tempfile.TemporaryDirectory() as tmp:
-        create_embeddings(_get_corpus(), ["alpha", "beta"], fake_map, tmp, batch_size=CORPUS_SIZE)
+        create_embeddings(_get_corpus(), [_ALPHA, _BETA], tmp, batch_size=CORPUS_SIZE)
         assert (Path(tmp) / "alpha.npy").exists(), "alpha.npy not created"
         assert (Path(tmp) / "beta.npy").exists(),  "beta.npy not created"
     print(f"  [ok]  multi-model: each alias has its own .npy file (alpha.npy, beta.npy)")
 
 def test_multi_model_no_cross_contamination():
-    # each result entry must match its own .npy, not the other model's file
-    fake_map = {
-        "aaa": "sentence-transformers/msmarco-distilbert-base-v2",
-        "bbb": "sentence-transformers/msmarco-distilbert-base-v2",
-    }
+    _AAA = ("aaa", "sentence-transformers/msmarco-distilbert-base-v2", 768)
+    _BBB = ("bbb", "sentence-transformers/msmarco-distilbert-base-v2", 768)
     with tempfile.TemporaryDirectory() as tmp:
-        results       = create_embeddings(_get_corpus(), ["aaa", "bbb"], fake_map, tmp, batch_size=CORPUS_SIZE)
-        _, _, v_aaa   = results[0]
-        _, _, v_bbb   = results[1]
+        results     = create_embeddings(_get_corpus(), [_AAA, _BBB], tmp, batch_size=CORPUS_SIZE)
+        _, _, v_aaa = results[0]
+        _, _, v_bbb = results[1]
         loaded_a = np.load(Path(tmp) / "aaa.npy")
         loaded_b = np.load(Path(tmp) / "bbb.npy")
-        # each result entry matches its file
         assert np.allclose(v_aaa, loaded_a, atol=1e-7), "aaa result does not match aaa.npy"
         assert np.allclose(v_bbb, loaded_b, atol=1e-7), "bbb result does not match bbb.npy"
-        # same model -> same content in both files
         assert np.allclose(loaded_a, loaded_b, atol=1e-5), "same model but files differ"
     print(f"  [ok]  multi-model: each alias file holds correct vectors, no cross-contamination")
 
 def test_multi_model_partial_cache():
-    # pre-populate alias_A; second call should reuse it and only encode alias_B
-    fake_map = {
-        "alias_A": "sentence-transformers/msmarco-distilbert-base-v2",
-        "alias_B": "sentence-transformers/msmarco-distilbert-base-v2",
-    }
     with tempfile.TemporaryDirectory() as tmp:
         # encode A only
-        r_a = create_embeddings(_get_corpus(), ["alias_A"], fake_map, tmp, batch_size=CORPUS_SIZE)
-        v_a_original = r_a[0][2].copy()   # index 2 = vectors
+        r_a = create_embeddings(_get_corpus(), [_ALIAS_A], tmp, batch_size=CORPUS_SIZE)
+        v_a_original = r_a[0][2].copy()
         mtime_a = (Path(tmp) / "alias_A.npy").stat().st_mtime
         # now encode both — A must be loaded from cache, B encoded fresh
-        results = create_embeddings(_get_corpus(), ["alias_A", "alias_B"], fake_map, tmp, batch_size=CORPUS_SIZE)
+        results = create_embeddings(_get_corpus(), [_ALIAS_A, _ALIAS_B], tmp, batch_size=CORPUS_SIZE)
         assert len(results) == 2
         _, _, v_a_from_cache = results[0]
         assert np.allclose(v_a_original, v_a_from_cache, atol=1e-7), "alias_A cache was not reused"
-        # A's file mtime should not have changed (no re-write)
         mtime_a2 = (Path(tmp) / "alias_A.npy").stat().st_mtime
         assert mtime_a == mtime_a2, "alias_A.npy was re-written even though it existed"
         assert (Path(tmp) / "alias_B.npy").exists(), "alias_B.npy was not created"
     print(f"  [ok]  multi-model: partial cache — existing alias loaded, missing one encoded")
 
 def test_multi_model_shapes_and_norms():
-    fake_map = {
-        "x": "sentence-transformers/msmarco-distilbert-base-v2",
-        "y": "sentence-transformers/msmarco-distilbert-base-v2",
-    }
+    _X = ("x", "sentence-transformers/msmarco-distilbert-base-v2", 768)
+    _Y = ("y", "sentence-transformers/msmarco-distilbert-base-v2", 768)
     with tempfile.TemporaryDirectory() as tmp:
-        results = create_embeddings(_get_corpus(), ["x", "y"], fake_map, tmp, batch_size=CORPUS_SIZE)
+        results = create_embeddings(_get_corpus(), [_X, _Y], tmp, batch_size=CORPUS_SIZE)
         for alias, _model, vecs in results:
             assert vecs.shape == (CORPUS_SIZE, EXPECTED_DIM), f"[{alias}] shape wrong: {vecs.shape}"
             norms = np.linalg.norm(vecs, axis=1)
@@ -299,24 +274,21 @@ def test_multi_model_shapes_and_norms():
 def test_embeddings_field_names():
     """
     Verify document_indexer's alias->field convention:
-      "msmarco" -> "embedding"   (baseline, no suffix)
-      "X"       -> "embedding_X"
-    This is the same mapping that index_documents() does internally.
+      "msmarco" -> "embedding_msmarco"
+      "alias_A" -> "embedding_alias_A"
+    All aliases produce embedding_{alias}. This is the same mapping that
+    index_documents() does internally via the float_tag-based naming scheme.
     """
-    fake_map = {
-        "msmarco": "sentence-transformers/msmarco-distilbert-base-v2",
-        "testenc": "sentence-transformers/msmarco-distilbert-base-v2",
-    }
+    _TESTENC = ("testenc", "sentence-transformers/msmarco-distilbert-base-v2", 768)
     with tempfile.TemporaryDirectory() as tmp:
-        results = create_embeddings(_get_corpus(), ["msmarco", "testenc"], fake_map, tmp, batch_size=CORPUS_SIZE)
+        results = create_embeddings(_get_corpus(), [ENCODER_MS_MARCO, _TESTENC], tmp, batch_size=CORPUS_SIZE)
 
-    # replicate the mapping logic from document_indexer.index_documents()
     embeddings_map = {
-        ("embedding" if alias == "msmarco" else f"embedding_{alias}"): vecs
+        f"embedding_{alias}": vecs
         for alias, _model, vecs in results
     }
 
-    assert "embedding"         in embeddings_map, "msmarco must map to 'embedding'"
+    assert "embedding_msmarco" in embeddings_map, "msmarco must map to 'embedding_msmarco'"
     assert "embedding_testenc" in embeddings_map, "testenc must map to 'embedding_testenc'"
     assert len(embeddings_map) == 2
     for field, vecs in embeddings_map.items():
@@ -332,9 +304,9 @@ if __name__ == "__main__":
     print("encoder + corpus_encoder tests  (CORPUS_SIZE=10)")
     print("=" * 60)
 
-    print("\n-- resolve_model_name --")
-    test_resolve_aliases()
-    test_resolve_passthrough()
+    print("\n-- Encoder (tuple + string input) --")
+    test_encoder_tuple_input()
+    test_encoder_string_input()
 
     print("\n-- Encoder (model loaded once, reused across tests) --")
     test_encoder_loads()

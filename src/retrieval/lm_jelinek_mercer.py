@@ -1,66 +1,25 @@
-"""
-src/retrieval/lm_jelinek_mercer.py
-
-LM Jelinek-Mercer retriever — match query on a pre-configured field.
-
-Two variants are baked into the index at creation time:
-  - contents_lmjm_01  (lambda=0.1 — favours short queries, document-centric smoothing)
-  - contents_lmjm_07  (lambda=0.7 — favours longer queries, corpus-centric smoothing)
-
-Select with lambda_variant="01" or "07". Compare both on train set, lock winner.
-"""
-
-import os
-import sys
-from pathlib import Path
 
 from opensearchpy import OpenSearch
 
-from src.retrieval.base import BaseRetriever
-
-# field name template — variant is "01" or "07"
-_FIELD_MAP = {
-    "01": "contents_lmjm_01",
-    "07": "contents_lmjm_07",
-}
+from src.indexing.index_builder import float_tag
+from src.retrieval.base import SparseRetriever
 
 
-class LMJMRetriever(BaseRetriever):
-    """LM Jelinek-Mercer retrieval on one of the two pre-configured LM-JM fields."""
+class LMJMRetriever(SparseRetriever):
+    """
+    LM Jelinek-Mercer retrieval on a pre-built contents_lmjm_{lambda_tag} field.
+    """
 
-    def __init__(self, client: OpenSearch, index_name: str, lambda_variant: str = "01"):
-        """
-        Args:
-            lambda_variant: "01" for lambda=0.1, "07" for lambda=0.7.
-        """
-        if lambda_variant not in _FIELD_MAP:
-            raise ValueError(f"lambda_variant must be '01' or '07', got '{lambda_variant}'")
-        self.client = client
-        self.index_name = index_name
-        self.lambda_variant = lambda_variant
-        self.field = _FIELD_MAP[lambda_variant]
-
-    # Run LM-JM match query on the appropriate field; same pattern as BM25 but different field.
-    def search(self, query: str, size: int = 100) -> list[tuple[str, float]]:
-        query_body = {
-            "size": size,
-            "_source": ["doc_id"],
-            "query": {
-                "match": {
-                    self.field: {
-                        "query": query
-                    }
-                }
-            },
-        }
-        response = self.client.search(body=query_body, index=self.index_name)
-        hits = response["hits"]["hits"]
-        return [(h["_source"]["doc_id"], h["_score"]) for h in hits]
+    def __init__(self, client: OpenSearch, index_name: str, lambd: float = 0.7):
+        if not (0.0 < lambd < 1.0):
+            raise ValueError(f"lam must be in (0, 1), got {lambd}")
+        field = f"contents_lmjm_{float_tag(lambd)}"
+        super().__init__(client, index_name, field=field)
 
 
-# ---------------------------------------------------------------------------
-# Self-test: python -m src.retrieval.lm_jelinek_mercer
-# ---------------------------------------------------------------------------
+#################################################################
+##                  LOCAL TEST                                 ##
+#################################################################
 if __name__ == "__main__":
     print("=" * 60)
     print("LM Jelinek-Mercer Retriever — self-test")
@@ -77,8 +36,8 @@ if __name__ == "__main__":
     test_query = "obstructive sleep apnea treatment"
     print(f"\nQuery: '{test_query}'")
 
-    for variant in ["01", "07"]:
-        retriever = LMJMRetriever(client, index_name, lambda_variant=variant)
+    for lam in [0.1, 0.7]:
+        retriever = LMJMRetriever(client, index_name, lambd=lam)
         results = retriever.search(test_query, size=100)
 
         assert isinstance(results, list), "Result must be a list"
@@ -88,7 +47,7 @@ if __name__ == "__main__":
         pmids = [p for p, _ in results]
         assert len(set(pmids)) == len(pmids), "Duplicate PMIDs in results"
 
-        print(f"\n  lambda={variant}  field={retriever.field}")
+        print(f"\n  lam={lam}  field={retriever.field}")
         print(f"  Results count : {len(results)}  OK")
         print(f"  Score order   : descending  OK")
         print(f"  No duplicates : OK")
@@ -97,3 +56,5 @@ if __name__ == "__main__":
             print(f"    PMID={pmid}  score={score:.4f}")
 
     print("\n  All LM-JM assertions passed.")
+
+

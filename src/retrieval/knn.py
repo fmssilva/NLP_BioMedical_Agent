@@ -1,65 +1,138 @@
-"""
-src/retrieval/knn.py
-
-Dense KNN retriever -- encode query, then knn search on the `embedding` field.
-
-Follows Lab01 KNN query pattern (lines 541-567): both "size" and "k" must be set.
-Encoder uses the same model as corpus encoding so query and document vectors
-are in the same space.
-"""
-
-import os
-import sys
-from pathlib import Path
-
+﻿
 import numpy as np
 from opensearchpy import OpenSearch
 
 from src.embeddings.encoder import Encoder
-from src.retrieval.base import BaseRetriever
+from src.retrieval.base import BaseRetriever, _extract_hits
+
+_DEFAULT_ALIAS = "msmarco"
+
+
+def _embedding_field(alias: str) -> str:
+    """Derive the OpenSearch field name: all aliases get embedding_{alias}."""
+    return f"embedding_{alias}"
 
 
 class KNNRetriever(BaseRetriever):
-    """Dense KNN retrieval using msmarco-distilbert-base-v2 embeddings."""
+    """
+    Dense KNN retrieval on an embedding_{alias} field.
+    """
 
-    def __init__(self, client: OpenSearch, index_name: str, encoder: Encoder | None = None):
-        """
-        Args:
-            encoder: an Encoder instance. If None, creates one (slow — pass one in for reuse).
-        """
+    def __init__(
+        self,
+        client: OpenSearch,
+        index_name: str,
+        encoder: "Encoder | None" = None,
+        encoder_alias: str = _DEFAULT_ALIAS,
+    ):
+        if encoder is not None and not hasattr(encoder, "encode_single"):
+            raise TypeError(
+                f"encoder must be an Encoder instance (or duck-typed equivalent) or None, "
+                f"got {type(encoder)}"
+            )
         self.client = client
         self.index_name = index_name
-        # load encoder lazily only if not provided
         self.encoder = encoder if encoder is not None else Encoder()
+        self.encoder_alias = encoder_alias
+        self.embed_field = _embedding_field(encoder_alias)
 
-    # Encode query, then run KNN search; size and k must both be set per Lab01 pattern.
-    def search(self, query: str, size: int = 100) -> list[tuple[str, float]]:
-        # encode the query using the same model+pooling as the indexed vectors
-        query_vector = self.encoder.encode_single(query)
+    def search(self, query: str, size: int = 100) -> list:
+        """Encode query -> vector, then run knn search on self.embed_field. k == size per Lab01."""
+        query_vector = self.encoder.encode_single(query)  # shape (dim,)
 
-        query_body = {
+        body = {
             "size": size,
             "_source": ["doc_id"],
             "query": {
                 "knn": {
-                    "embedding": {
+                    self.embed_field: {
                         "vector": query_vector.tolist(),
-                        "k": size,   # k = final result count from coordinator (not per-shard)
+                        "k": size,
                     }
                 }
             },
         }
-        response = self.client.search(body=query_body, index=self.index_name)
-        hits = response["hits"]["hits"]
-        return [(h["_source"]["doc_id"], h["_score"]) for h in hits]
+        resp = self.client.search(body=body, index=self.index_name)
+        return _extract_hits(resp["hits"]["hits"])
 
 
 # ---------------------------------------------------------------------------
-# Self-test: python -m src.retrieval.knn
+# MedCPT asymmetric KNN retriever
 # ---------------------------------------------------------------------------
+
+class MedCPTKNNRetriever:
+    """
+    Dense KNN retrieval using MedCPT embeddings stored in the index.
+
+    MedCPT uses an asymmetric architecture — a separate query encoder
+    (ncbi/MedCPT-Query-Encoder) from the document encoder.  The query encoder
+    is loaded lazily on first use.
+    """
+
+    def __init__(self, client, index_name: str):
+        self.client = client
+        self.index_name = index_name
+        self._tokenizer = None
+        self._model = None
+        self._device = "cpu"
+
+    def _ensure_encoder(self) -> None:
+        """Load MedCPT query encoder on first use."""
+        if self._model is not None:
+            return
+        import torch
+        from transformers import AutoModel, AutoTokenizer
+
+        model_name = "ncbi/MedCPT-Query-Encoder"
+        print(f"[MedCPTKNNRetriever] Loading '{model_name}' ...")
+        self._tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self._model = AutoModel.from_pretrained(model_name).eval()
+        self._device = "cuda" if torch.cuda.is_available() else "cpu"
+        self._model.to(self._device)
+
+    def encode_query(self, text: str) -> "np.ndarray":
+        """Encode a single query; returns (768,) L2-normalised vector."""
+        import torch
+        import torch.nn.functional as F
+
+        self._ensure_encoder()
+        enc = self._tokenizer(
+            [text], padding=True, truncation=True,
+            max_length=512, return_tensors="pt",
+        )
+        enc = {k: v.to(self._device) for k, v in enc.items()}
+        with torch.no_grad():
+            out = self._model(**enc, return_dict=True)
+        token_emb = out.last_hidden_state
+        mask = enc["attention_mask"].unsqueeze(-1).expand(token_emb.size()).float()
+        pooled = torch.sum(token_emb * mask, 1) / torch.clamp(mask.sum(1), min=1e-9)
+        normed = F.normalize(pooled, p=2, dim=1)
+        return normed[0].cpu().numpy()
+
+    def search(self, query: str, size: int = 100) -> list[tuple[str, float]]:
+        qvec = self.encode_query(query)
+        body = {
+            "size": size,
+            "_source": ["doc_id"],
+            "query": {
+                "knn": {
+                    "embedding_medcpt": {
+                        "vector": qvec.tolist(),
+                        "k": size,
+                    }
+                }
+            },
+        }
+        resp = self.client.search(body=body, index=self.index_name)
+        return [(h["_source"]["doc_id"], h["_score"]) for h in resp["hits"]["hits"]]
+
+
+#################################################################
+##                  LOCAL TEST                                 ##
+#################################################################
 if __name__ == "__main__":
     print("=" * 60)
-    print("KNN Retriever — self-test")
+    print("KNN Retriever -- self-test")
     print("=" * 60)
 
     import os
@@ -74,6 +147,7 @@ if __name__ == "__main__":
     enc = Encoder()
 
     retriever = KNNRetriever(client, index_name, encoder=enc)
+    print(f"  embed_field : {retriever.embed_field}")
 
     test_query = "obstructive sleep apnea treatment"
     print(f"\nQuery: '{test_query}'")

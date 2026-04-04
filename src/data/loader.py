@@ -2,7 +2,12 @@ import json
 from pathlib import Path
 
 
-# Load corpus documents from the JSONL file (one JSON object per line).
+######################################################################
+## Corpus and topic loaders — read raw data files from disk.
+######################################################################
+
+
+# Load corpus documents from the JSONL file
 # size=None -> load all; size=N -> load first N docs (fast local testing)
 def load_corpus(path: str | Path, size: int | None = None) -> list[dict]:
     corpus = []
@@ -16,7 +21,7 @@ def load_corpus(path: str | Path, size: int | None = None) -> list[dict]:
     return corpus
 
 
-# Load the 65 BioGen topics from the JSON file.
+# Load the BioGen topics from the JSON file.
 def load_topics(path: str | Path) -> list[dict]:
     with open(path, encoding="utf-8") as f:
         data = json.load(f)

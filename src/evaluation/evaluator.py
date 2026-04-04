@@ -1,290 +1,217 @@
 """
 src/evaluation/evaluator.py
 
-Evaluation pipeline for Phase 1 — runs retrieval and computes metrics.
-
-Responsibilities:
-  1. Query field ablation on train set (topic / question / concatenated)
-  2. LM-JM lambda selection on train set (lambda=0.1 vs lambda=0.7)
-  3. Full evaluation of all 5 strategies on train or test set
-  4. Save run files to results/phase1/
+Core evaluation utilities:
+  - build_query         (re-exported from src.data.query_builder for backward compat)
+  - evaluate_retriever  — run a live retriever and compute all 5 metrics
+  - metrics_from_run    — recompute metrics from a saved run file (no retriever needed)
+  - save_run / load_run — JSON run-file I/O
 
 Public API:
-    build_query(topic, field)                        -- format a query string from a topic
-    run_strategy(retriever, queries, qrels, all_doc_ids, query_field)
-                                                     -- search + metrics for one strategy
-    field_ablation(client, index, corpus_ids, train_topics, qrels)
-                                                     -- BM25 on 3 query fields, pick best
-    evaluate_all_strategies(client, index, encoder, corpus_ids, topics, qrels, query_field, lmjm_variant)
-                                                     -- full 5-strategy evaluation table
-    save_run(run, path)                              -- save {topic_id: [(pmid, score)...]} to JSON
-    load_run(path)                                   -- load run file, restore tuples
-
-This is a plain Python pipeline file, not a notebook. Run with:
-    python -m src.evaluation.evaluator
+    build_query(topic, field)                          -> str
+    evaluate_retriever(retriever, topics, qrels,
+                       qrels_graded, all_doc_ids, ...) -> dict
+    metrics_from_run(run, topics, qrels,
+                     qrels_graded, all_doc_ids)        -> dict
+    save_run(run, path)                                -> None
+    load_run(path)                                     -> dict
 """
 
 import json
 import logging
-import os
 from pathlib import Path
 
 import numpy as np
 
-from src.data.loader import load_corpus, load_topics
-from src.data.qrels_builder import build_qrels
-from src.embeddings.corpus_encoder import load_embeddings
-from src.embeddings.encoder import Encoder
+# build_query lives in src.data — re-exported here for backward compatibility
+from src.data.query_builder import build_query  # noqa: F401
 from src.evaluation.metrics import (
     average_precision,
     mean_average_precision,
+    mean_ndcg_at_k,
     mean_pr_curve,
     mean_reciprocal_rank,
+    ndcg_at_k,
     precision_at_k,
+    pr_curve,
+    recall_at_k,
     reciprocal_rank,
     results_to_ranking,
+    results_to_ranking_graded,
 )
-from src.indexing.opensearch_client import get_client
-from src.retrieval.bm25 import BM25Retriever
-from src.retrieval.knn import KNNRetriever
-from src.retrieval.lm_dirichlet import LMDirichletRetriever
-from src.retrieval.lm_jelinek_mercer import LMJMRetriever
-from src.retrieval.rrf import RRFRetriever
 
 logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Query formatting
+# Live-retriever evaluation — all 5 metrics + PR curves
 # ---------------------------------------------------------------------------
 
-# Format a topic dict into a query string for the chosen field.
-def build_query(topic: dict, field: str) -> str:
-    """
-    Return a query string from a topic dict.
-
-    Args:
-        topic: dict with keys 'topic', 'question', 'narrative'.
-        field: one of 'topic', 'question', 'concatenated'.
-    """
-    if field == "topic":
-        return topic["topic"]
-    if field == "question":
-        return topic["question"]
-    if field == "concatenated":
-        return f"{topic['topic']} {topic['question']} {topic['narrative']}"
-    raise ValueError(f"Unknown query field: '{field}'. Use 'topic', 'question', or 'concatenated'.")
-
-
-# ---------------------------------------------------------------------------
-# Single-strategy run (search all queries, compute metrics)
-# ---------------------------------------------------------------------------
-
-def run_strategy(
+def evaluate_retriever(
     retriever,
-    topics: list[dict],
-    qrels: dict[str, dict],
-    all_doc_ids: list[str],
-    query_field: str,
-    size: int = 100,
+    topics:       list[dict],
+    qrels:        dict[str, dict],
+    qrels_graded: dict[str, dict],
+    all_doc_ids:  list[str],
+    query_field:  str = "topic+question",
+    size:         int = 100,
 ) -> dict:
     """
-    Run a retriever on all topics and compute IR metrics.
+    Run a retriever on every topic and compute all 5 metrics.
 
-    Returns a dict with keys:
-        run         -- {topic_id: [(pmid, score), ...]}
-        per_query   -- {topic_id: {"AP": float, "RR": float, "P@10": float}}
-        MAP         -- float
-        MRR         -- float
-        P@10        -- float
-        pr_curves   -- (recall_levels, mean_precisions) for plotting
+    Primary metric: NDCG@100 (graded qrels: supporting=2, neutral=1).
+    Secondary: MAP, MRR, P@10, R@100.
+
+    Args:
+        retriever:    object with .search(query: str, size: int) -> [(pmid, score), ...]
+        topics:       list of topic dicts (each has 'id', 'topic', 'question', 'narrative')
+        qrels:        {topic_id: {pmid: 1}} binary qrels
+        qrels_graded: {topic_id: {pmid: 0/1/2}} graded qrels
+        all_doc_ids:  full corpus doc-ID list (defines ranking universe)
+        query_field:  field used to build the query string
+        size:         number of results to retrieve per query
+
+    Returns:
+        {
+            "run":       {topic_id: [(pmid, score), ...]},
+            "MAP":       float,
+            "MRR":       float,
+            "P@10":      float,
+            "R@100":     float,
+            "NDCG@100":  float,
+            "pr_curves": (recall_levels, mean_precisions),
+            "per_query": {topic_id: {"AP", "RR", "P@10", "R@100", "NDCG@100", "pr_curve"}},
+        }
     """
-    run = {}
-    per_query = {}
-    all_queries_for_map = []  # list of (relevance_labels, ranking) for MAP/MRR/PR
+    run        = {}
+    per_query  = {}
+    all_binary = []    # (relevance, ranking) for MAP/MRR/P@10/R@100
+    all_graded = []    # (scores_graded, ranking_graded) for NDCG
 
     for topic in topics:
-        topic_id = str(topic["id"])
-        qrels_set = set(qrels.get(topic_id, {}).keys())
+        tid       = str(topic["id"])
+        qrels_set = set(qrels.get(tid, {}).keys())
 
-        query = build_query(topic, query_field)
+        query   = build_query(topic, query_field)
         results = retriever.search(query, size=size)
-
-        run[topic_id] = results
+        run[tid] = results
 
         relevance, ranking = results_to_ranking(results, qrels_set, all_doc_ids)
-        all_queries_for_map.append((relevance, ranking))
+        all_binary.append((relevance, ranking))
 
-        ap  = average_precision(ranking, relevance)
-        rr  = reciprocal_rank(ranking, relevance)
-        p10 = precision_at_k(ranking, relevance, 10)
-        per_query[topic_id] = {"AP": ap, "RR": rr, "P@10": p10}
+        scores_g, ranking_g = results_to_ranking_graded(
+            results, qrels_graded.get(tid, {}), all_doc_ids
+        )
+        all_graded.append((scores_g, ranking_g))
 
-    # aggregate metrics
-    map_score = mean_average_precision(all_queries_for_map)
-    mrr_score = mean_reciprocal_rank(all_queries_for_map)
-    p10_mean  = float(np.mean([v["P@10"] for v in per_query.values()]))
-    rl, mp    = mean_pr_curve(all_queries_for_map)
+        q_recalls, q_precs = pr_curve(ranking, relevance)
+
+        per_query[tid] = {
+            "AP":       average_precision(ranking, relevance),
+            "RR":       reciprocal_rank(ranking, relevance),
+            "P@10":     precision_at_k(ranking, relevance, 10),
+            "R@100":    recall_at_k(ranking, relevance, 100),
+            "NDCG@100": ndcg_at_k(ranking_g, scores_g, 100),
+            "pr_curve": (q_recalls, q_precs),
+        }
+
+    rl, mp = mean_pr_curve(all_binary)
 
     return {
         "run":       run,
-        "per_query": per_query,
-        "MAP":       map_score,
-        "MRR":       mrr_score,
-        "P@10":      p10_mean,
+        "MAP":       mean_average_precision(all_binary),
+        "MRR":       mean_reciprocal_rank(all_binary),
+        "P@10":      float(np.mean([v["P@10"]   for v in per_query.values()])),
+        "R@100":     float(np.mean([v["R@100"]  for v in per_query.values()])),
+        "NDCG@100":  mean_ndcg_at_k(all_graded, k=100),
         "pr_curves": (rl, mp),
+        "per_query": per_query,
     }
 
 
 # ---------------------------------------------------------------------------
-# Query field ablation (BM25 only, train set)
+# Offline metrics — recompute from a saved run file (no live retriever)
 # ---------------------------------------------------------------------------
 
-def field_ablation(
-    client,
-    index_name: str,
-    all_doc_ids: list[str],
-    train_topics: list[dict],
-    qrels: dict[str, dict],
-) -> str:
+def metrics_from_run(
+    run:          dict,
+    topics:       list[dict],
+    qrels:        dict[str, dict],
+    qrels_graded: dict[str, dict],
+    all_doc_ids:  list[str],
+) -> dict:
     """
-    Run BM25 with 3 query fields on the train set, pick the one with highest MAP.
+    Recompute all 5 metrics from a pre-saved run dict.
 
-    Prints a comparison table and returns the winning field name.
+    Same output shape as evaluate_retriever (minus the 'run' key).
+    Use this when run files are already on disk — no OpenSearch connection needed.
+
+    Args:
+        run:          {topic_id: [[pmid, score], ...]}  (from load_run)
+        topics:       same topic list used during retrieval
+        qrels:        binary qrels
+        qrels_graded: graded qrels
+        all_doc_ids:  full corpus doc-ID list
+
+    Returns:
+        {"MAP", "MRR", "P@10", "R@100", "NDCG@100", "pr_curves", "per_query"}
     """
-    retriever = BM25Retriever(client, index_name)
-    fields = ["topic", "question", "concatenated"]
-    results = {}
+    per_query  = {}
+    all_binary = []
+    all_graded = []
 
-    print("\n" + "=" * 50)
-    print("Query Field Ablation (BM25, train set)")
-    print("=" * 50)
-    print(f"{'Field':>15} | {'MAP':>8} | {'MRR':>8} | {'P@10':>8}")
-    print("-" * 50)
+    for topic in topics:
+        tid       = str(topic["id"])
+        qrels_set = set(qrels.get(tid, {}).keys())
+        results   = [(pmid, float(score)) for pmid, score in run.get(tid, [])]
 
-    for field in fields:
-        r = run_strategy(retriever, train_topics, qrels, all_doc_ids, field)
-        results[field] = r
-        print(f"{field:>15} | {r['MAP']:>8.4f} | {r['MRR']:>8.4f} | {r['P@10']:>8.4f}")
+        relevance, ranking = results_to_ranking(results, qrels_set, all_doc_ids)
+        all_binary.append((relevance, ranking))
 
-    print("-" * 50)
+        scores_g, ranking_g = results_to_ranking_graded(
+            results, qrels_graded.get(tid, {}), all_doc_ids
+        )
+        all_graded.append((scores_g, ranking_g))
 
-    # pick winner by MAP
-    winner = max(results, key=lambda f: results[f]["MAP"])
-    print(f"\n  --> Best field: '{winner}'  (MAP={results[winner]['MAP']:.4f})")
-    print(f"  --> Locking '{winner}' for all subsequent evaluations.")
+        q_recalls, q_precs = pr_curve(ranking, relevance)
 
-    return winner
+        per_query[tid] = {
+            "AP":       average_precision(ranking, relevance),
+            "RR":       reciprocal_rank(ranking, relevance),
+            "P@10":     precision_at_k(ranking, relevance, 10),
+            "R@100":    recall_at_k(ranking, relevance, 100),
+            "NDCG@100": ndcg_at_k(ranking_g, scores_g, 100),
+            "pr_curve": (q_recalls, q_precs),
+        }
 
-
-# ---------------------------------------------------------------------------
-# LM-JM lambda selection (train set)
-# ---------------------------------------------------------------------------
-
-def lmjm_lambda_selection(
-    client,
-    index_name: str,
-    all_doc_ids: list[str],
-    train_topics: list[dict],
-    qrels: dict[str, dict],
-    query_field: str,
-) -> str:
-    """
-    Compare LM-JM lambda=0.1 vs lambda=0.7 on train set.
-    Returns the winning variant string: '01' or '07'.
-    """
-    print("\n" + "=" * 50)
-    print("LM-JM Lambda Selection (train set)")
-    print("=" * 50)
-    print(f"{'Variant':>10} | {'lambda':>8} | {'MAP':>8} | {'MRR':>8} | {'P@10':>8}")
-    print("-" * 50)
-
-    variant_map = {"01": 0.1, "07": 0.7}
-    results = {}
-
-    for variant, lam in variant_map.items():
-        retriever = LMJMRetriever(client, index_name, lambda_variant=variant)
-        r = run_strategy(retriever, train_topics, qrels, all_doc_ids, query_field)
-        results[variant] = r
-        print(f"{'lmjm_' + variant:>10} | {lam:>8.1f} | {r['MAP']:>8.4f} | {r['MRR']:>8.4f} | {r['P@10']:>8.4f}")
-
-    print("-" * 50)
-
-    winner = max(results, key=lambda v: results[v]["MAP"])
-    print(f"\n  --> Best LM-JM variant: lambda={variant_map[winner]:.1f} ('{winner}')")
-    print(f"  --> Locking lambda={variant_map[winner]:.1f} for test evaluation.")
-
-    return winner
-
-
-# ---------------------------------------------------------------------------
-# Full 5-strategy evaluation
-# ---------------------------------------------------------------------------
-
-def evaluate_all_strategies(
-    client,
-    index_name: str,
-    encoder: Encoder,
-    all_doc_ids: list[str],
-    topics: list[dict],
-    qrels: dict[str, dict],
-    query_field: str,
-    lmjm_variant: str,
-    set_name: str = "train",
-) -> dict[str, dict]:
-    """
-    Run all 5 strategies on the given topics and print a comparison table.
-
-    Returns: {strategy_name: run_strategy_result_dict}
-    """
-    strategies = {
-        "BM25":   BM25Retriever(client, index_name),
-        "LM-JM":  LMJMRetriever(client, index_name, lambda_variant=lmjm_variant),
-        "LM-Dir": LMDirichletRetriever(client, index_name),
-        "KNN":    KNNRetriever(client, index_name, encoder=encoder),
-        "RRF":    RRFRetriever(client, index_name, encoder=encoder),
+    rl, mp = mean_pr_curve(all_binary)
+    return {
+        "MAP":       mean_average_precision(all_binary),
+        "MRR":       mean_reciprocal_rank(all_binary),
+        "P@10":      float(np.mean([v["P@10"]    for v in per_query.values()])),
+        "R@100":     float(np.mean([v["R@100"]   for v in per_query.values()])),
+        "NDCG@100":  mean_ndcg_at_k(all_graded, k=100),
+        "pr_curves": (rl, mp),
+        "per_query": per_query,
     }
-
-    print("\n" + "=" * 62)
-    print(f"All-Strategy Evaluation ({set_name} set, field='{query_field}', lmjm={lmjm_variant})")
-    print("=" * 62)
-    print(f"{'Strategy':>10} | {'MAP':>8} | {'MRR':>8} | {'P@10':>8}")
-    print("-" * 40)
-
-    results = {}
-    for name, retriever in strategies.items():
-        print(f"  Running {name} ...", end="", flush=True)
-        r = run_strategy(retriever, topics, qrels, all_doc_ids, query_field)
-        results[name] = r
-        print(f"\r{name:>10} | {r['MAP']:>8.4f} | {r['MRR']:>8.4f} | {r['P@10']:>8.4f}")
-
-    print("-" * 40)
-
-    # best strategy highlight
-    best = max(results, key=lambda n: results[n]["MAP"])
-    print(f"\n  --> Best strategy: {best}  (MAP={results[best]['MAP']:.4f})")
-
-    return results
 
 
 # ---------------------------------------------------------------------------
 # Run file I/O
 # ---------------------------------------------------------------------------
 
-# Save a run dict {topic_id: [(pmid, score)...]} to JSON.
 def save_run(run: dict, path: str | Path) -> None:
     """
-    JSON serialises a run file. Tuples become lists (JSON limitation) — restoring
-    on load is optional (evaluation code uses index [0] and [1]).
+    Serialise a run dict {topic_id: [(pmid, score), ...]} to JSON.
+    Tuples become lists (JSON limitation) — load_run restores them as lists.
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
         json.dump(run, f)
-    print(f"[evaluator] Saved run file ({len(run)} topics) -> {path}")
+    logger.info("[evaluator] Saved run file (%d topics) -> %s", len(run), path)
 
 
-# Load a run file and restore as list of [pmid, score] pairs.
 def load_run(path: str | Path) -> dict:
     """Load a run file. Returns {topic_id: [[pmid, score], ...]}."""
     with open(path) as f:
@@ -292,110 +219,52 @@ def load_run(path: str | Path) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Convenience entry-point callable from notebooks or other scripts
-# ---------------------------------------------------------------------------
-
-def run_baseline_evaluation(
-    client=None,
-    index_name: str = "",
-    encoder: "Encoder | None" = None,
-    corpus: list[dict] | None = None,
-    train_topics: list[dict] | None = None,
-    test_topics: list[dict] | None = None,
-    qrels: dict | None = None,
-    output_dir: str | Path = Path(__file__).resolve().parents[2] / "results" / "phase1",
-) -> dict:
-    """
-    Run the full baseline evaluation pipeline (field ablation, LM-JM selection,
-    all-strategy evaluation on train + test) and save run files to output_dir.
-
-    Always overwrites existing run files.
-
-    Args:
-        client:       OpenSearch client (created from env if None)
-        index_name:   index to query (read from OPENSEARCH_INDEX env if empty)
-        encoder:      Encoder instance for KNN/RRF (created with defaults if None)
-        corpus:       list of corpus dicts (loaded from disk if None)
-        train_topics: train topic list (loaded from disk if None)
-        test_topics:  test topic list (loaded from disk if None)
-        qrels:        binary qrels dict (loaded from disk if None)
-        output_dir:   directory to write *_run.json and *_train_run.json files
-
-    Returns:
-        dict with keys 'train_results' and 'test_results', each mapping
-        strategy name -> run_strategy result dict
-    """
-    import logging
-    logging.basicConfig(level=logging.WARNING, format="%(levelname)s  %(name)s  %(message)s")
-
-    output_dir = Path(output_dir)
-    root = Path(__file__).resolve().parents[2]
-
-    from dotenv import load_dotenv
-    load_dotenv()
-
-    if corpus is None:
-        corpus = load_corpus(root / "data" / "filtered_pubmed_abstracts.txt")
-    all_doc_ids = [doc["id"] for doc in corpus]
-    print(f"Corpus: {len(corpus)} docs")
-
-    if train_topics is None:
-        with open(root / "results" / "splits" / "train_queries.json") as f:
-            train_topics = json.load(f)
-    if test_topics is None:
-        with open(root / "results" / "splits" / "test_queries.json") as f:
-            test_topics = json.load(f)
-    print(f"Train queries: {len(train_topics)}, Test queries: {len(test_topics)}")
-
-    if qrels is None:
-        with open(root / "results" / "qrels.json") as f:
-            qrels = json.load(f)
-    print(f"Qrels topics: {len(qrels)}")
-
-    if client is None:
-        client = get_client()
-    if not index_name:
-        index_name = os.getenv("OPENSEARCH_INDEX", "")
-    assert index_name, "OPENSEARCH_INDEX not set"
-
-    if encoder is None:
-        encoder = Encoder()
-
-    print("=" * 62)
-    print("Baseline Evaluation Pipeline (train set)")
-    print("=" * 62)
-
-    best_field = field_ablation(client, index_name, all_doc_ids, train_topics, qrels)
-    best_lmjm  = lmjm_lambda_selection(client, index_name, all_doc_ids, train_topics, qrels, best_field)
-
-    train_results = evaluate_all_strategies(
-        client, index_name, encoder, all_doc_ids,
-        train_topics, qrels, best_field, best_lmjm, set_name="train",
-    )
-    for name, result in train_results.items():
-        safe_name = name.lower().replace("-", "_")
-        save_run(result["run"], output_dir / f"{safe_name}_train_run.json")
-
-    test_results = evaluate_all_strategies(
-        client, index_name, encoder, all_doc_ids,
-        test_topics, qrels, best_field, best_lmjm, set_name="test",
-    )
-    for name, result in test_results.items():
-        safe_name = name.lower().replace("-", "_")
-        save_run(result["run"], output_dir / f"{safe_name}_run.json")
-
-    print("\n" + "=" * 62)
-    print("Baseline evaluation complete.")
-    print(f"  Best query field : {best_field}")
-    print(f"  Best LM-JM lambda: {best_lmjm}")
-    print(f"  Run files saved to: {output_dir}")
-    print("=" * 62)
-
-    return {"train_results": train_results, "test_results": test_results}
-
-
-# ---------------------------------------------------------------------------
-# Self-test / main pipeline: python -m src.evaluation.evaluator
+# Self-test: python -m src.evaluation.evaluator
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    run_baseline_evaluation()
+    import tempfile
+
+    print("=" * 60)
+    print("evaluator.py — offline self-test")
+    print("=" * 60)
+
+    # ── Test build_query re-export ───────────────────────────────────────────
+    _t = {
+        "id": "1",
+        "topic": "sleep apnea",
+        "question": "What is the best treatment?",
+        "narrative": "Documents about CPAP and surgery.",
+    }
+    assert build_query(_t, "topic") == "sleep apnea"
+    assert build_query(_t, "topic+question") == "sleep apnea What is the best treatment?"
+    assert build_query(_t, "concatenated") == (
+        "sleep apnea What is the best treatment? Documents about CPAP and surgery."
+    )
+    print("  [ok] build_query re-export")
+
+    # ── Test metrics_from_run with mock data ─────────────────────────────────
+    _topics  = [{"id": str(i), "topic": f"t{i}", "question": "", "narrative": ""}
+                for i in range(5)]
+    _doc_ids = [f"doc{i:03d}" for i in range(20)]
+    _qrels   = {str(i): {"doc000": 1, "doc001": 1, "doc002": 1} for i in range(5)}
+    _qgr     = {str(i): {"doc000": 2, "doc001": 2, "doc002": 1} for i in range(5)}
+    _run     = {str(i): [(_doc_ids[j], 1.0 - j * 0.05) for j in range(20)] for i in range(5)}
+
+    m = metrics_from_run(_run, _topics, _qrels, _qgr, _doc_ids)
+    assert "MAP" in m and "NDCG@100" in m and "R@100" in m
+    assert 0.0 < m["NDCG@100"] <= 1.0
+    assert 0.0 < m["MAP"] <= 1.0
+    assert len(m["per_query"]) == 5
+    print(f"  [ok] metrics_from_run  NDCG@100={m['NDCG@100']:.4f}  MAP={m['MAP']:.4f}")
+
+    # ── Test save_run / load_run round-trip ─────────────────────────────────
+    with tempfile.TemporaryDirectory() as _tmpdir:
+        _path = Path(_tmpdir) / "test_run.json"
+        save_run(_run, _path)
+        assert _path.exists()
+        _loaded = load_run(_path)
+        assert set(_loaded.keys()) == set(_run.keys())
+    print("  [ok] save_run / load_run round-trip")
+
+    print("\n[ok] All evaluator self-tests passed.")
+

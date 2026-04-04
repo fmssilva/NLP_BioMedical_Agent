@@ -1,49 +1,24 @@
-"""
-src/retrieval/lm_dirichlet.py
-
-LM Dirichlet retriever — match query on the `contents_lmdir` field (mu=2000).
-
-Dirichlet smoothing with mu=2000 is the standard default for passage retrieval.
-Same match-query pattern as BM25, different field.
-"""
-
-import os
-import sys
-from pathlib import Path
 
 from opensearchpy import OpenSearch
 
-from src.retrieval.base import BaseRetriever
+from src.retrieval.base import SparseRetriever
 
 
-class LMDirichletRetriever(BaseRetriever):
-    """LM Dirichlet retrieval using the pre-configured `contents_lmdir` field (mu=2000)."""
+class LMDirichletRetriever(SparseRetriever):
+    """
+    LM Dirichlet retrieval on a pre-built contents_lmdir_{mu} field.
+    """
 
-    def __init__(self, client: OpenSearch, index_name: str):
-        self.client = client
-        self.index_name = index_name
-
-    # Run LM-Dirichlet match query on the lmdir field; same pattern as BM25 but different field.
-    def search(self, query: str, size: int = 100) -> list[tuple[str, float]]:
-        query_body = {
-            "size": size,
-            "_source": ["doc_id"],
-            "query": {
-                "match": {
-                    "contents_lmdir": {
-                        "query": query
-                    }
-                }
-            },
-        }
-        response = self.client.search(body=query_body, index=self.index_name)
-        hits = response["hits"]["hits"]
-        return [(h["_source"]["doc_id"], h["_score"]) for h in hits]
+    def __init__(self, client: OpenSearch, index_name: str, mu: int = 2000):
+        if mu <= 0:
+            raise ValueError(f"mu must be a positive integer, got {mu}")
+        field = f"contents_lmdir_{mu}"
+        super().__init__(client, index_name, field=field)
 
 
-# ---------------------------------------------------------------------------
-# Self-test: python -m src.retrieval.lm_dirichlet
-# ---------------------------------------------------------------------------
+#################################################################
+##                  LOCAL TEST                                 ##
+#################################################################
 if __name__ == "__main__":
     print("=" * 60)
     print("LM Dirichlet Retriever — self-test")
@@ -57,7 +32,8 @@ if __name__ == "__main__":
     client = get_client()
     index_name = os.getenv("OPENSEARCH_INDEX", "")
 
-    retriever = LMDirichletRetriever(client, index_name)
+    retriever = LMDirichletRetriever(client, index_name, mu=75)
+    print(f"  field : {retriever.field}")
 
     test_query = "obstructive sleep apnea treatment"
     print(f"\nQuery: '{test_query}'")
@@ -78,3 +54,5 @@ if __name__ == "__main__":
         print(f"    PMID={pmid}  score={score:.4f}")
 
     print("\n  All LM-Dirichlet assertions passed.")
+
+

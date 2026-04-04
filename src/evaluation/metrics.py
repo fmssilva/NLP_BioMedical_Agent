@@ -1,41 +1,16 @@
-"""
-src/evaluation/metrics.py
-
-Standard IR evaluation metrics — implemented from scratch following Lab03 exactly.
-No ranx, no ir-measures, no external IR library.
-
-Public API:
-    precision_at_k(ranking, relevance, k)                    -> float
-    recall_at_k(ranking, relevance, k)                        -> float
-    average_precision(ranking, relevance)                     -> float
-    mean_average_precision(queries)                           -> float   (TREC: excludes 0-rel topics)
-    reciprocal_rank(ranking, relevance)                       -> float
-    mean_reciprocal_rank(queries)                             -> float   (TREC: excludes 0-rel topics)
-    ndcg_at_k(ranking, relevance_scores, k)                   -> float   (graded relevance)
-    mean_ndcg_at_k(queries, k)                                -> float   (graded, excludes 0-rel topics)
-    pr_curve(ranking, relevance)                              -> (recalls, precisions)
-    interpolated_pr_curve(recalls, precisions, n=11)          -> (recall_levels, interp_precisions)
-    mean_pr_curve(queries, n=11)                              -> (recall_levels, mean_precisions)
-    results_to_ranking(results, qrels_set, all_doc_ids)       -> (relevance, ranking)
-    results_to_ranking_graded(results, qrels_graded, all_doc_ids) -> (scores, ranking)
-
-`queries` format for binary metrics: list of (relevance_labels, ranking)
-  - relevance_labels: list[bool] parallel to all_doc_ids
-  - ranking: list[int] — doc indices into all_doc_ids, ordered by retrieval rank
-
-`queries` format for graded metrics: list of (relevance_scores, ranking)
-  - relevance_scores: list[float] parallel to all_doc_ids (0.0 = not relevant)
-  - ranking: list[int] — same integer-index format
-
-Lab03 reference: Lab03_Retrieval_Evaluation.ipynb lines 86-488, 756-805.
-"""
-
 import logging
 import warnings
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+######################################################################
+## Standard IR metrics — P@k, R@k, AP, MAP, MRR, NDCG@k, PR curves.
+## Binary and graded relevance. TREC convention: excludes 0-rel topics
+## from mean metrics. No external IR library — implemented from scratch.
+######################################################################
 
 
 # ---------------------------------------------------------------------------
@@ -106,7 +81,7 @@ def _filter_zero_relevant(queries: list[tuple]) -> list[tuple]:
             filtered.append((labels, ranking))
 
     if n_excluded > 0:
-        logger.warning(
+        logger.debug(
             "[metrics] Excluded %d topic(s) with 0 relevant documents "
             "(TREC standard: do not penalise MAP/MRR for unjudged topics).",
             n_excluded,
@@ -263,7 +238,7 @@ def mean_ndcg_at_k(queries: list[tuple], k: int) -> float:
             valid.append((scores, ranking))
 
     if n_excluded > 0:
-        logger.warning(
+        logger.debug(
             "[metrics] NDCG: excluded %d topic(s) with 0 graded relevance (TREC standard).",
             n_excluded,
         )
@@ -304,7 +279,8 @@ def results_to_ranking(
     relevance = [doc_id in qrels_set for doc_id in all_doc_ids]
 
     # build ranking: retrieved ids first (by score), then the rest
-    retrieved_ids = [r[0] for r in results]
+    # filter to corpus — in test mode (CORPUS_SIZE=N) the index has more docs than all_doc_ids
+    retrieved_ids = [r[0] for r in results if r[0] in id_to_idx]
     retrieved_set = set(retrieved_ids)
     not_retrieved = [doc_id for doc_id in all_doc_ids if doc_id not in retrieved_set]
     full_ranking_ids = retrieved_ids + not_retrieved
@@ -340,7 +316,8 @@ def results_to_ranking_graded(
     scores = [float(qrels_graded.get(doc_id, 0)) for doc_id in all_doc_ids]
 
     # build ranking: retrieved first (by score), then the rest
-    retrieved_ids = [r[0] for r in results]
+    # filter to corpus — in test mode (CORPUS_SIZE=N) the index has more docs than all_doc_ids
+    retrieved_ids = [r[0] for r in results if r[0] in id_to_idx]
     retrieved_set = set(retrieved_ids)
     not_retrieved = [doc_id for doc_id in all_doc_ids if doc_id not in retrieved_set]
     full_ranking_ids = retrieved_ids + not_retrieved

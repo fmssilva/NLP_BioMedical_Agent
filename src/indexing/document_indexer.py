@@ -1,21 +1,3 @@
-"""
-src/indexing/document_indexer.py
-
-Bulk-index all PubMed abstracts into OpenSearch.
-
-Public API:
-    index_documents(client, index_name, corpus, embeddings) -> None
-
-Design:
-  - embeddings is list[(alias, model_name, ndarray)] from create_embeddings.
-    Field names are derived internally: "msmarco" -> "embedding"; others -> "embedding_{alias}".
-  - Idempotent: a full re-index is skipped when:
-        (a) doc count already equals len(corpus), AND
-        (b) every expected field name already exists in the live mapping.
-    If the mapping has new fields (e.g. a new KNN encoder was added), the full
-    corpus is re-indexed so every document gets the new field populated.
-  - Uses OpenSearch bulk helpers for efficient ingestion.
-"""
 
 import os
 import sys
@@ -30,6 +12,12 @@ from src.indexing.opensearch_client import get_client, check_health, check_index
 from src.indexing.index_builder import get_live_fields, get_live_field_types
 
 
+######################################################################
+## Document indexing - build the full index into OpenSearch.
+######################################################################
+
+
+
 def _build_source(
     doc: dict,
     text_fields: list[str],
@@ -38,7 +26,6 @@ def _build_source(
 ) -> dict:
     """
     Build the _source dict for a single document.
-
     Args:
         doc:         {"id": str, "contents": str}
         text_fields: list of text field names to populate with doc["contents"]
@@ -57,6 +44,8 @@ def _build_source(
     return source
 
 
+
+
 def _get_indexed_fields(client: OpenSearch, index_name: str, doc_id: str) -> set[str]:
     """
     Return the set of field names stored in the _source of one indexed doc.
@@ -69,35 +58,33 @@ def _get_indexed_fields(client: OpenSearch, index_name: str, doc_id: str) -> set
         return set()
 
 
+
+
 def index_documents(
     client:         OpenSearch,
     index_name:     str,
     corpus:         list[dict],
-    embeddings:     list[tuple[str, str, np.ndarray]],
+    embeddings:     "list[tuple[str, str, np.ndarray]] | dict[str, np.ndarray]",
     batch_size:     int = 100,
 ) -> None:
     """
     Bulk-index all corpus documents.
 
-    Idempotent: skipped only when BOTH conditions hold:
+    Skipped when BOTH conditions hold:
       (a) doc count == len(corpus)
       (b) all fields we're about to write are already in the first stored doc's _source
-
-    Args:
-        client:     Connected OpenSearch client.
-        index_name: Target index (must already exist with correct mapping).
-        corpus:     List of {"id": str, "contents": str} dicts.
-        embeddings: list[(alias, model_name, ndarray)] from create_embeddings.
-                    alias "msmarco" -> field "embedding"; others -> "embedding_{alias}"
-        batch_size: Documents per bulk request.
     """
-    # build field_name -> array dict from the triplet list
-    # - "msmarco" is the baseline KNN field, named "embedding" (no suffix)
-    # - all others get "embedding_{alias}"
-    embeddings_map: dict[str, np.ndarray] = {
-        ("embedding" if alias == "msmarco" else f"embedding_{alias}"): vecs
-        for alias, _model_name, vecs in embeddings
-    }
+    # build field_name -> array dict
+    if isinstance(embeddings, dict):
+        # caller already built the field name -> array mapping directly
+        embeddings_map: dict[str, np.ndarray] = embeddings
+    else:
+        # list of (alias, model_name, vecs) tuples from create_embeddings()
+        # all aliases produce embedding_{alias} (e.g. embedding_msmarco, embedding_medcpt)
+        embeddings_map = {
+            f"embedding_{alias}": vecs
+            for alias, _model_name, vecs in embeddings
+        }
 
     # validate shapes
     for fname, arr in embeddings_map.items():
@@ -122,13 +109,25 @@ def index_documents(
     # expected_fields = what this call will write into each doc's _source
     expected_fields = {"doc_id"} | set(text_fields) | knn_field_names
 
-    # Idempotency check:
-    #   count matches AND the first stored doc already has all expected fields
+    # Idempotency check — two conditions must both hold to skip:
+    #   (a) doc count in index == len(corpus)
+    #   (b) the first stored doc already has all expected fields
+    #
+    # Count mismatch cases:
+    #   count < corpus  -> partial index or first run -> re-index
+    #   count > corpus  -> common in test mode (CORPUS_SIZE=10 on a full 4194-doc index)
+    #                      -> re-index (upsert): only the 10 given docs are updated;
+    #                         the other docs keep their existing data, which is fine for smoke-tests.
+    #                         Set FORCE_REINDEX=True if you need a clean slate.
     count_resp    = client.count(index=index_name)
     current_count = count_resp.get("count", 0)
 
+    # derived from the count comparison — NOT a user flag
+    # True when index has more docs than the given corpus slice (e.g. CORPUS_SIZE=10 smoke-test)
+    upsert_partial = current_count > len(corpus)
+
     if current_count == len(corpus):
-        # sample the first doc's stored fields to check if any field is missing
+        # count matches — sample the first doc's stored fields to check if any field is missing
         first_id       = corpus[0]["id"]
         stored_fields  = _get_indexed_fields(client, index_name, first_id)
         missing_in_doc = expected_fields - stored_fields
@@ -140,10 +139,17 @@ def index_documents(
             )
             return
 
-        # some fields exist in the mapping but not in stored docs (e.g. new KNN field added)
+        # some fields exist in the mapping but not in stored docs yet (e.g. new KNN field added)
         print(
             f"[document_indexer] New fields not yet in stored docs: {sorted(missing_in_doc)}"
             f" -- full re-index required."
+        )
+    elif upsert_partial:
+        # index has MORE docs than corpus — common when CORPUS_SIZE is set small in the notebook
+        # upsert only the given slice; the rest of the index keeps its existing data
+        print(
+            f"[document_indexer] Index has {current_count} docs but corpus has {len(corpus)}. "
+            f"Running in partial mode — will upsert {len(corpus)} docs in-place."
         )
     elif current_count > 0:
         print(
@@ -153,12 +159,14 @@ def index_documents(
     else:
         print(f"[document_indexer] Indexing {len(corpus)} documents into '{index_name}' ...")
 
-    print(f"[document_indexer] Text fields ({len(text_fields)}): {text_fields}")
-    print(f"[document_indexer] KNN fields  ({len(knn_field_names)}): {sorted(knn_field_names)}")
+    # text_fields = all BM25 / LM-JM / LM-Dir fields — every sparse model has its own field
+    print(f"[document_indexer] Sparse text fields ({len(text_fields)}): {text_fields}")
+    print(f"[document_indexer] KNN vector fields  ({len(knn_field_names)}): {sorted(knn_field_names)}")
     if all_knn_in_mapping - knn_field_names:
+        # other encoder fields exist in the mapping but aren't being written this call — that's fine
         print(
-            f"[document_indexer] KNN fields in mapping but skipped this call "
-            f"(different encoder): {sorted(all_knn_in_mapping - knn_field_names)}"
+            f"[document_indexer] KNN fields in mapping but skipped this pass "
+            f"(different encoder run): {sorted(all_knn_in_mapping - knn_field_names)}"
         )
 
     # Bulk-index in batches
@@ -190,20 +198,19 @@ def index_documents(
     client.indices.refresh(index=index_name)
 
     final_count = client.count(index=index_name).get("count", 0)
-    print(
-        f"[document_indexer] Done.  "
-        f"Indexed: {total_indexed}  |  Total in index: {final_count}/{len(corpus)}"
-    )
-    if final_count != len(corpus):
+    suffix = f" (partial upsert — corpus slice={len(corpus)})" if upsert_partial else f"/{len(corpus)}"
+    print(f"[document_indexer] Done.  Indexed: {total_indexed}  |  Total in index: {final_count}{suffix}")
+    if not upsert_partial and final_count != len(corpus):
         print(
             f"[document_indexer] WARNING — final count {final_count} != {len(corpus)}. "
             "Some documents may have failed to index."
         )
 
 
-# ---------------------------------------------------------------------------
-# Self-test: python -m src.indexing.document_indexer
-# ---------------------------------------------------------------------------
+
+#################################################################
+##                  LOCAL TEST                                 ##
+#################################################################
 if __name__ == "__main__":
     print("=" * 60)
     print("document_indexer.py — self-test")
@@ -253,7 +260,7 @@ if __name__ == "__main__":
         os_client,
         index_name,
         corpus,
-        embeddings_map={"embedding": emb},
+        {"embedding_msmarco": emb},
     )
 
     count_after = os_client.count(index=index_name).get("count", 0)

@@ -1,19 +1,6 @@
 """
-Comprehensive tests for qrels_builder.py.
-
-Covers:
-  - Structure:  query_id -> doc_id -> relevance_score mapping is correct
-  - Scores:     binary only has 1s; graded only has 1s and 2s
-  - Consistency: graded[score>=2] == binary exactly (same docs, same topics)
-  - Corpus membership: every doc in qrels exists in the corpus
-  - Score distribution: supporting count matches known approximate range
-  - Derivation: binary is derived from graded at runtime (single parse pass)
-
-Key design: build_qrels() calls build_qrels_graded() and filters score >= BINARY_THRESHOLD (=2).
-Graded is the single source of truth.
-
-Run with:
-  python -m src.data.__qrels_builder_test
+Local tests for qrels_builder.py.
+Run with: python -m src.data.__qrels_builder_test
 """
 
 import json
@@ -30,8 +17,8 @@ from src.data.qrels_builder import (
 ROOT = Path(__file__).resolve().parents[2]
 SUBMISSIONS = ROOT / "data" / "biogen_2024_submissions.json"
 CORPUS_PATH = ROOT / "data" / "filtered_pubmed_abstracts.txt"
-BINARY_JSON = ROOT / "results" / "qrels.json"
-GRADED_JSON = ROOT / "results" / "qrels_graded.json"
+BINARY_JSON = ROOT / "results" / "qrels" / "qrels.json"
+GRADED_JSON = ROOT / "results" / "qrels" / "qrels_graded.json"
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 

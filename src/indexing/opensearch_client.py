@@ -1,19 +1,3 @@
-"""
-src/indexing/opensearch_client.py
-
-OpenSearch connection utilities for the BioGen IR pipeline.
-
-Public API:
-    get_client() -> OpenSearch
-    check_health(client) -> None
-    check_index(client, index_name) -> bool
-
-Connection pattern follows Lab01 exactly:
-    - host/port/credentials loaded from .env via python-dotenv
-    - SSL on, url_prefix='opensearch_v3', no cert/hostname verification
-    - http_compress=True for bandwidth efficiency
-"""
-
 import os
 import sys
 
@@ -21,21 +5,20 @@ from dotenv import load_dotenv
 from opensearchpy import OpenSearch
 
 
+######################################################################
+## OpenSearch connection and health utilities.
+## Reads host/port/credentials from .env (python-dotenv).
+######################################################################
+
+
 def get_client() -> OpenSearch:
     """
     Create and return a configured OpenSearch client.
-
-    Reads the following environment variables (via .env):
+    Reads environment variables (via .env):
         OPENSEARCH_HOST  — e.g. api.novasearch.org
         OPENSEARCH_PORT  — e.g. 443
         OPENSEARCH_USER  — username
         OPENSEARCH_PASS  — password
-
-    Returns:
-        OpenSearch: connected client instance (Lab01 pattern exactly).
-
-    Raises:
-        ValueError: if any required env variable is missing.
     """
     load_dotenv()
 
@@ -73,40 +56,8 @@ def get_client() -> OpenSearch:
 def check_health(client: OpenSearch) -> None:
     """
     Verify that the OpenSearch server is reachable.
-
-    Tries cluster.health() first.  On shared classroom servers the user may
-    lack cluster-level monitor permissions — falls back to client.info()
-    and then to an indices.exists probe as a last resort.
-
-    Fails loudly (raises RuntimeError) if the server is completely unreachable.
-
-    Args:
-        client: A connected OpenSearch client instance.
-
-    Raises:
-        RuntimeError: if the server cannot be reached at all.
     """
-    # --- Try cluster.health() first (full-permission servers) ---
-    try:
-        health = client.cluster.health()
-        status       = health.get("status", "unknown")
-        cluster_name = health.get("cluster_name", "unknown")
-        num_nodes    = health.get("number_of_nodes", "?")
-        print(f"[health] cluster='{cluster_name}'  status={status}  nodes={num_nodes}")
-        if status == "red":
-            raise RuntimeError(
-                f"Cluster health is RED — check the OpenSearch server. "
-                f"Full response: {health}"
-            )
-        return
-    except RuntimeError:
-        raise
-    except Exception as e:
-        if "security_exception" not in str(e) and "403" not in str(e):
-            raise RuntimeError(f"Cannot reach OpenSearch cluster: {e}") from e
-        # Classroom restriction — fall through to next probe
-
-    # --- Fallback 1: client.info() ---
+    # --- client.info() ---
     try:
         info = client.info()
         version      = info.get("version", {}).get("number", "?")
@@ -118,7 +69,7 @@ def check_health(client: OpenSearch) -> None:
         if "security_exception" not in str(e) and "403" not in str(e):
             raise RuntimeError(f"Cannot reach OpenSearch cluster: {e}") from e
 
-    # --- Fallback 2: lightweight indices.exists probe ---
+    # --- Fallback: lightweight indices.exists probe ---
     try:
         client.indices.exists(index="probe-connection-check")
         print("[health] Server reachable (cluster:monitor restricted — "
@@ -135,19 +86,7 @@ def check_health(client: OpenSearch) -> None:
 
 def check_index(client: OpenSearch, index_name: str, expected_count: int = 4194) -> bool:
     """
-    Check whether the target index exists and is fully populated.
-
-    An index is considered fully populated when its document count equals
-    expected_count (default: 4194 PubMed abstracts).
-
-    Args:
-        client:         A connected OpenSearch client instance.
-        index_name:     Name of the index to check.
-        expected_count: Expected number of documents in the index.
-
-    Returns:
-        True  — index exists AND doc count == expected_count
-        False — index does not exist OR doc count != expected_count
+    Check whether the target index exists and is fully populated (doc length == expected_count).
     """
     if not client.indices.exists(index=index_name):
         print(f"[index] '{index_name}' does not exist — not yet created (that's OK at this stage).")
@@ -167,9 +106,9 @@ def check_index(client: OpenSearch, index_name: str, expected_count: int = 4194)
         return False
 
 
-# ---------------------------------------------------------------------------
-# Self-test: python -m src.indexing.opensearch_client
-# ---------------------------------------------------------------------------
+#################################################################
+##                  LOCAL TEST                                 ##
+#################################################################
 if __name__ == "__main__":
     print("=" * 60)
     print("Step 6 — opensearch_client.py self-test")
