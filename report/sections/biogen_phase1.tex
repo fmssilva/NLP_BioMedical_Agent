@@ -110,7 +110,7 @@
   \item \textbf{Three custom similarity plugins registered at index creation:}
     \begin{itemize}
       \item[--] \texttt{lmjm\_01}: LMJelinekMercer $\lambda$=0.1
-      \item[--] \texttt{lmjm\_07}: LMJelinekMercer $\lambda$=0.7
+      \item[--] \texttt{lmjm\_07}: LMJelinekMercer $\lambda$=0.7 (baseline field)
       \item[--] \texttt{lmdir}: LMDirichlet $\mu$=2{,}000 (default baseline)
     \end{itemize}
   \item \textbf{Six index fields:}
@@ -118,7 +118,8 @@
       \item[--] \texttt{doc\_id} — keyword (PMID, exact match)
       \item[--] \texttt{contents} — text, standard analyser, BM25 similarity
       \item[--] \texttt{contents\_lmjm\_01} — text, standard, LMJelinekMercer $\lambda$=0.1
-      \item[--] \texttt{contents\_lmjm\_07} — text, standard, LMJelinekMercer $\lambda$=0.7
+      \item[--] \texttt{contents\_lmjm\_07} — text, standard, LMJelinekMercer $\lambda$=0.7 (baseline)
+      \item[--] \texttt{contents\_lmjm\_065} — text, standard, LMJelinekMercer $\lambda$=0.65 (tuning winner)
       \item[--] \texttt{contents\_lmdir} — text, standard, LMDirichlet $\mu$=2{,}000
       \item[--] \texttt{embedding} — knn\_vector, dim=768, HNSW (inner product,
                 \texttt{ef\_construction}=256, M=48)
@@ -177,12 +178,13 @@
     \end{itemize}
 
   \item \textbf{LM Jelinek-Mercer} — \texttt{match} on
-        \texttt{contents\_lmjm\_07} ($\lambda$=0.7 locked from sweep).
+        \texttt{contents\_lmjm\_065} ($\lambda$=0.65, extended grid winner;
+        $\Delta$NDCG=+0.001 over original $\lambda$=0.7).
     \begin{itemize}
-      \item[--] $\lambda$=0.7 gives more weight to the document's own term
+      \item[--] $\lambda$=0.65 gives more weight to the document's own term
                 distribution — correct for 10--20 word clinical queries.
-      \item[--] $\lambda$=0.9 is tied ($\Delta$NDCG=0.0001, within noise);
-                $\lambda$=0.7 pre-indexed and locked.
+      \item[--] $\lambda$=0.9 is nearly tied ($\Delta$NDCG=0.0001, within noise);
+                $\lambda$=0.65 locked (extended grid winner).
     \end{itemize}
 
   \item \textbf{LM Dirichlet} — \texttt{match} on \texttt{contents\_lmdir\_75}

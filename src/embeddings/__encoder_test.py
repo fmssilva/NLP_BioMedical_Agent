@@ -39,7 +39,10 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from src.data.loader import load_corpus
-from src.embeddings.encoder import Encoder
+from src.embeddings.encoder import (
+    Encoder,
+    POOLING_MEAN, POOLING_MEAN_NO_SPECIAL, POOLING_CLS, VALID_POOLING_MODES,
+)
 from src.embeddings.corpus_encoder import (
     encode_corpus, save_embeddings, load_embeddings, create_embeddings
 )
@@ -297,6 +300,109 @@ def test_embeddings_field_names():
     print(f"  [ok]  field names: {list(embeddings_map.keys())} match index convention")
 
 
+# ── Pooling mode tests ───────────────────────────────────────────────────
+
+def test_pooling_mode_invalid_raises():
+    try:
+        Encoder("sentence-transformers/msmarco-distilbert-base-v2", pooling_mode="bad_mode")
+        assert False, "Should have raised ValueError"
+    except ValueError as e:
+        assert "bad_mode" in str(e)
+    print(f"  [ok]  invalid pooling_mode raises ValueError")
+
+def test_valid_pooling_modes_set():
+    assert VALID_POOLING_MODES == {"mean", "mean_no_special", "cls"}
+    print(f"  [ok]  VALID_POOLING_MODES = {VALID_POOLING_MODES}")
+
+def _get_encoder_pooling(mode: str) -> Encoder:
+    """Load (or reuse cached) encoder with a specific pooling mode."""
+    return Encoder(ENCODER_MS_MARCO, pooling_mode=mode)
+
+def test_pooling_mean_shape_and_norms():
+    enc  = _get_encoder_pooling(POOLING_MEAN)
+    texts = [d["contents"] for d in _get_corpus()]
+    vecs  = enc.encode(texts)
+    assert vecs.shape == (CORPUS_SIZE, EXPECTED_DIM), f"shape: {vecs.shape}"
+    norms = np.linalg.norm(vecs, axis=1)
+    assert np.allclose(norms, 1.0, atol=1e-5), f"norms: {norms}"
+    print(f"  [ok]  pooling=mean: shape {vecs.shape}, norms ~1.0")
+
+def test_pooling_cls_shape_and_norms():
+    enc  = _get_encoder_pooling(POOLING_CLS)
+    texts = [d["contents"] for d in _get_corpus()]
+    vecs  = enc.encode(texts)
+    assert vecs.shape == (CORPUS_SIZE, EXPECTED_DIM), f"shape: {vecs.shape}"
+    norms = np.linalg.norm(vecs, axis=1)
+    assert np.allclose(norms, 1.0, atol=1e-5), f"norms: {norms}"
+    print(f"  [ok]  pooling=cls: shape {vecs.shape}, norms ~1.0")
+
+def test_pooling_mean_no_special_shape_and_norms():
+    enc  = _get_encoder_pooling(POOLING_MEAN_NO_SPECIAL)
+    texts = [d["contents"] for d in _get_corpus()]
+    vecs  = enc.encode(texts)
+    assert vecs.shape == (CORPUS_SIZE, EXPECTED_DIM), f"shape: {vecs.shape}"
+    norms = np.linalg.norm(vecs, axis=1)
+    assert np.allclose(norms, 1.0, atol=1e-5), f"norms: {norms}"
+    print(f"  [ok]  pooling=mean_no_special: shape {vecs.shape}, norms ~1.0")
+
+def test_pooling_modes_produce_different_vectors():
+    """
+    The three pooling modes must produce non-identical vectors for real texts.
+    CLS and mean should not be equal (they pool different token subsets).
+    """
+    texts = [d["contents"] for d in _get_corpus()]
+    v_mean   = _get_encoder_pooling(POOLING_MEAN).encode(texts)
+    v_cls    = _get_encoder_pooling(POOLING_CLS).encode(texts)
+    v_no_sp  = _get_encoder_pooling(POOLING_MEAN_NO_SPECIAL).encode(texts)
+
+    assert not np.allclose(v_mean, v_cls,   atol=1e-4), "mean == cls — pooling not working"
+    assert not np.allclose(v_mean, v_no_sp, atol=1e-4), "mean == mean_no_special — identical"
+    assert not np.allclose(v_cls,  v_no_sp, atol=1e-4), "cls == mean_no_special — unexpected"
+    print(f"  [ok]  all 3 pooling modes produce distinct vectors")
+
+def test_pooling_mode_attribute_stored():
+    enc = _get_encoder_pooling(POOLING_CLS)
+    assert enc.pooling_mode == POOLING_CLS
+    enc2 = _get_encoder_pooling(POOLING_MEAN_NO_SPECIAL)
+    assert enc2.pooling_mode == POOLING_MEAN_NO_SPECIAL
+    print(f"  [ok]  pooling_mode stored correctly on Encoder instance")
+
+def test_pooling_singleton_separate_per_mode():
+    """
+    Each (model, device, pooling_mode) must be a separate singleton —
+    calling Encoder with different pooling_mode must return different instances.
+    """
+    enc_mean = _get_encoder_pooling(POOLING_MEAN)
+    enc_cls  = _get_encoder_pooling(POOLING_CLS)
+    assert enc_mean is not enc_cls, "mean and cls returned the same singleton — WRONG"
+    print(f"  [ok]  singletons are separate per pooling_mode")
+
+def test_pooling_mean_no_special_short_text():
+    """
+    For a very short text (e.g. 1 content token: CLS + token + SEP = 3 tokens),
+    mean_no_special must still produce a valid unit vector (not zeros).
+    """
+    enc  = _get_encoder_pooling(POOLING_MEAN_NO_SPECIAL)
+    vec  = enc.encode(["ok"])           # "ok" → 1 content token
+    assert vec.shape == (1, EXPECTED_DIM)
+    norm = np.linalg.norm(vec[0])
+    assert abs(norm - 1.0) < 1e-5, f"short-text norm = {norm} (expected ~1.0)"
+    print(f"  [ok]  pooling=mean_no_special handles short text (1 content token), norm ~1.0")
+
+def test_pooling_degenerate_cls_sep_only():
+    """
+    Absolute edge case: tokenize empty string → [CLS] [SEP] only.
+    mean_no_special falls back to CLS, result should be valid (not NaN/zero).
+    """
+    enc  = _get_encoder_pooling(POOLING_MEAN_NO_SPECIAL)
+    vec  = enc.encode([""])
+    assert vec.shape == (1, EXPECTED_DIM)
+    norm = np.linalg.norm(vec[0])
+    assert abs(norm - 1.0) < 1e-5, f"empty string norm = {norm}"
+    assert not np.any(np.isnan(vec)), "NaN in empty-string embedding"
+    print(f"  [ok]  pooling=mean_no_special handles empty string (fallback to CLS), norm ~1.0")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -337,6 +443,18 @@ if __name__ == "__main__":
 
     print("\n-- embeddings_map field-name alignment --")
     test_embeddings_field_names()
+
+    print("\n-- Pooling modes --")
+    test_pooling_mode_invalid_raises()
+    test_valid_pooling_modes_set()
+    test_pooling_mean_shape_and_norms()
+    test_pooling_cls_shape_and_norms()
+    test_pooling_mean_no_special_shape_and_norms()
+    test_pooling_modes_produce_different_vectors()
+    test_pooling_mode_attribute_stored()
+    test_pooling_singleton_separate_per_mode()
+    test_pooling_mean_no_special_short_text()
+    test_pooling_degenerate_cls_sep_only()
 
     print("\n" + "=" * 60)
     print("All encoder + corpus_encoder tests passed.")

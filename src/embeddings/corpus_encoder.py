@@ -4,7 +4,7 @@ import numpy as np
 from tqdm import tqdm
 
 from src.data.loader import load_corpus
-from src.embeddings.encoder import Encoder
+from src.embeddings.encoder import Encoder, POOLING_MEAN
 
 
 ######################################################################
@@ -45,11 +45,12 @@ def load_embeddings(path: str | Path) -> np.ndarray:
 
 
 def create_embeddings(
-    corpus:     list[dict],
-    models:     list[tuple[str, str, int]],
-    output_dir: str | Path,
-    batch_size: int = 32,
-    force:      bool = False,
+    corpus:       list[dict],
+    models:       list[tuple[str, str, int]],
+    output_dir:   str | Path,
+    batch_size:   int = 32,
+    force:        bool = False,
+    pooling_mode: str = POOLING_MEAN,
 ) -> list[tuple[str, str, np.ndarray]]:
     """
     Encode corpus with each model in ``models``.
@@ -89,7 +90,7 @@ def create_embeddings(
         if needs_encode:
             reason = "FORCE_REENCODE" if force else "no cache / stale cache"
             print(f"[corpus_encoder] '{alias}': encoding {len(corpus)} docs with '{model_name}' ({reason})")
-            encoder = Encoder(model_name)
+            encoder = Encoder(model_name, pooling_mode=pooling_mode)
             vectors = encode_corpus(encoder, corpus, batch_size=batch_size)
             save_embeddings(vectors, npy_path)
 
@@ -105,4 +106,3 @@ def create_embeddings(
         results.append((alias, model_name, vectors))
 
     return results
-

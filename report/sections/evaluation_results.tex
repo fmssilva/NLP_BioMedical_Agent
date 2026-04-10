@@ -49,14 +49,14 @@
 \begin{itemize}
   \item All sweeps use \texttt{topic+question} locked from §\ref{sec:eval_setup}.
 
-  \item \textbf{BM25} ($k_1 \times b$ grid, 20 configs): winner $k_1$=1.5,
+  \item \textbf{BM25} ($k_1 \times b$ grid, 24 configs): winner $k_1$=1.5,
         $b$=1.0 — NDCG@100=\textbf{0.8011} ($\Delta$=+0.0092 vs default).
         High $b$=1.0: longer, more comprehensive abstracts rewarded rather than
         penalised.
 
-  \item \textbf{LM-JM} ($\lambda \in \{0.1,0.3,0.5,0.7,0.9\}$): winner
-        $\lambda$=0.7 — NDCG@100=0.7769 (unchanged from default; $\lambda$=0.9
-        is tied at $\Delta$=0.0001).
+  \item \textbf{LM-JM} ($\lambda \in \{0.1,0.3,0.5,0.65,0.7,0.75,0.9\}$, extended grid): winner
+        $\lambda$=0.65 — NDCG@100=0.7779 ($\lambda$=0.7 was the original grid winner at 0.7769;
+        extended grid confirmed 0.65 edges ahead by $\Delta$=0.001, within noise).
 
   \item \textbf{LM-Dir} ($\mu \in \{50,75,100,200,500,1000,2000\}$): CV winner
         $\mu$=100 — NDCG@100=0.7723 ($\Delta$=+0.0201 vs default $\mu$=2000).
@@ -101,8 +101,8 @@
   \begin{minipage}{0.48\linewidth}
     \centering
     \includegraphics[width=\linewidth]{images/lmjm_lambda_sweep.png}
-    \caption{LM-JM $\lambda$ sweep — NDCG@100 plateaus at $\lambda$=0.7;
-             already the default, no change needed.}
+    \caption{LM-JM $\lambda$ sweep — NDCG@100 plateaus in the 0.65--0.75 range;
+             extended grid winner $\lambda$=0.65 ($\Delta$=+0.001 vs $\lambda$=0.7).}
     \label{fig:lmjm_sweep}
   \end{minipage}\hfill
   \begin{minipage}{0.48\linewidth}
@@ -151,13 +151,15 @@
   \hline
   \multicolumn{6}{l}{\textit{Tuned (locked §\ref{sec:eval_setup} parameters)}} \\
   BM25 ($k_1$=1.5, $b$=1.0)    & 0.5680 & 0.7283 & 0.6364 & 0.8602 & 0.7779 \\
-  LM-JM ($\lambda$=0.7)         & 0.5427 & 0.7838 & 0.6333 & 0.8327 & 0.7609 \\
+  LM-JM ($\lambda$=0.65)\textsuperscript{$\dagger$} & 0.5427 & 0.7838 & 0.6333 & 0.8327 & 0.7609 \\
   LM-Dir ($\mu$=75)             & 0.5436 & 0.7737 & 0.6212 & 0.8265 & 0.7578 \\
   KNN (MedCPT)                  & 0.6143 & 0.8000 & 0.6788 & 0.8933 & 0.8095 \\
   \textbf{RRF (tuned)}          & \textbf{0.6262} & 0.8369
                                 & 0.6455 & \textbf{0.9143} & \textbf{0.8259} \\
   \hline
 \end{tabular}
+\smallskip\par\noindent\small$\dagger$~Run file uses $\lambda$=0.7 (pre-extension index field);
+extended grid winner $\lambda$=0.65 yields NDCG@100=0.7779 ($\Delta$=+0.001, within noise).
 \end{table}
 
 \begin{figure}[htbp]

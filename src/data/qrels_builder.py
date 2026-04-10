@@ -112,6 +112,48 @@ def build_qrels(
     }
 
 
+def rescale_qrels_graded(
+    qrels_graded: dict,
+    max_score_new: int,
+    max_score_orig: int = 2,
+) -> dict:
+    """
+    Linearly rescale graded qrels from the original 0–max_score_orig scale
+    to a new 0–max_score_new scale (rounding to nearest integer).
+
+    Example:
+        rescale_qrels_graded(qrels, max_score_new=5, max_score_orig=2)
+        maps  0 → 0,  1 → 3,  2 → 5   (linear, rounded)
+
+        rescale_qrels_graded(qrels, max_score_new=7, max_score_orig=2)
+        maps  0 → 0,  1 → 4,  2 → 7   (linear, rounded, 0.5 → 4 by Python rounding)
+
+    Only entries with score >= 1 are kept (same convention as build_qrels_graded).
+
+    Args:
+        qrels_graded:   {topic_id: {pmid: int_score}}  — standard output of build_qrels_graded.
+        max_score_new:  target maximum score (e.g. 5 or 7).
+        max_score_orig: current maximum score (default 2, matching GRADED_SCORE above).
+
+    Returns:
+        New qrels dict with rescaled integer scores.
+    """
+    if max_score_orig <= 0:
+        raise ValueError("max_score_orig must be > 0")
+    factor = max_score_new / max_score_orig
+
+    rescaled: dict = {}
+    for qid, docs in qrels_graded.items():
+        new_docs = {}
+        for pmid, score in docs.items():
+            new_score = round(score * factor)
+            if new_score >= 1:
+                new_docs[pmid] = new_score
+        if new_docs:
+            rescaled[qid] = new_docs
+    return rescaled
+
+
 
 def save_qrels(qrels: dict, output_path: str | Path) -> None:
     """

@@ -11,6 +11,7 @@ from src.data.qrels_builder import (
     _DEFAULT_GRADED_SCORE,
     build_qrels,
     build_qrels_graded,
+    rescale_qrels_graded,
 )
 
 
@@ -275,6 +276,84 @@ def test_synthetic_build():
     print(f"  [OK] synthetic build test: binary and graded correctly derived from fake submissions")
 
 
+# ── rescale_qrels_graded tests (synthetic, no file I/O) ───────────────────
+
+def test_rescale_0_2_to_0_5():
+    # 0-2 scale -> 0-5: factor = 5/2 = 2.5
+    # score 1 -> round(1*2.5) = round(2.5) = 2 (Python banker's rounding: round half to even)
+    # score 2 -> round(2*2.5) = 5
+    qrels = {"q1": {"A": 2, "B": 1}}
+    out = rescale_qrels_graded(qrels, max_score_new=5)
+    assert out["q1"]["A"] == 5, f"score 2->5 failed: got {out['q1']['A']}"
+    assert out["q1"]["B"] == 2, f"score 1->2 failed: got {out['q1']['B']}"
+    print(f"  [OK] rescale 0-2->0-5: score 2 -> 5, score 1 -> 2")
+
+def test_rescale_0_2_to_0_7():
+    # 0-2 scale -> 0-7: factor = 7/2 = 3.5
+    # score 1 -> round(1*3.5) = round(3.5) = 4 (Python banker's rounding: round half to even)
+    # score 2 -> round(2*3.5) = 7
+    qrels = {"q1": {"A": 2, "B": 1}}
+    out = rescale_qrels_graded(qrels, max_score_new=7)
+    assert out["q1"]["A"] == 7, f"score 2->7 failed: got {out['q1']['A']}"
+    assert out["q1"]["B"] == 4, f"score 1->4 failed: got {out['q1']['B']}"
+    print(f"  [OK] rescale 0-2->0-7: score 2 -> 7, score 1 -> 4")
+
+def test_rescale_identity():
+    # rescale to same max -> scores unchanged
+    qrels = {"q1": {"A": 2, "B": 1}}
+    out = rescale_qrels_graded(qrels, max_score_new=2, max_score_orig=2)
+    assert out["q1"]["A"] == 2
+    assert out["q1"]["B"] == 1
+    print(f"  [OK] rescale identity (0-2->0-2): scores unchanged")
+
+def test_rescale_preserves_topic_structure():
+    # all topics/PMIDs with score>=1 must be preserved
+    qrels = {"q1": {"A": 2, "B": 1}, "q2": {"C": 2}}
+    out = rescale_qrels_graded(qrels, max_score_new=5)
+    assert set(out.keys()) == {"q1", "q2"}
+    assert "A" in out["q1"] and "B" in out["q1"]
+    assert "C" in out["q2"]
+    print(f"  [OK] rescale preserves all topics and PMIDs with score>=1")
+
+def test_rescale_filters_zeroed_scores():
+    # if a score would rescale to 0, it should be filtered out
+    # With max_new=1, max_orig=2: score 1 -> round(0.5)=0 (banker's rounding), score 2->1
+    qrels = {"q1": {"A": 2, "B": 1}}
+    out = rescale_qrels_graded(qrels, max_score_new=1, max_score_orig=2)
+    # A (score=2) -> 1, kept; B (score=1) -> round(0.5)=0, dropped
+    assert "A" in out["q1"], f"A should be kept with score 1"
+    assert out["q1"]["A"] == 1
+    assert "B" not in out.get("q1", {}), f"B should be filtered (maps to 0)"
+    print(f"  [OK] rescale filters scores that round to 0")
+
+def test_rescale_returns_new_dict():
+    # must not mutate the input qrels
+    qrels = {"q1": {"A": 2}}
+    out = rescale_qrels_graded(qrels, max_score_new=5)
+    assert qrels["q1"]["A"] == 2, "original qrels was mutated"
+    assert out is not qrels,      "returned same object — should be a new dict"
+    print(f"  [OK] rescale returns a new dict (original not mutated)")
+
+def test_rescale_invalid_max_score_orig():
+    # max_score_orig <= 0 must raise
+    try:
+        rescale_qrels_graded({"q1": {"A": 2}}, max_score_new=5, max_score_orig=0)
+        assert False, "Should have raised ValueError"
+    except ValueError:
+        pass
+    print(f"  [OK] rescale raises ValueError for max_score_orig=0")
+
+def test_rescale_relative_order_preserved():
+    # relative order of PMIDs must not change after rescaling
+    qrels = {"q1": {"A": 2, "B": 1}}
+    for target_max in [3, 5, 7, 10]:
+        out = rescale_qrels_graded(qrels, max_score_new=target_max)
+        assert out["q1"]["A"] > out["q1"]["B"], (
+            f"Order inverted at target_max={target_max}: A={out['q1']['A']}, B={out['q1']['B']}"
+        )
+    print(f"  [OK] rescale preserves relative score ordering for targets 3, 5, 7, 10")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -294,6 +373,16 @@ if __name__ == "__main__":
     print("\n-- Synthetic unit test (no file I/O) --")
     test_synthetic_build()
     test_graded_score_mapping()
+
+    print("\n-- rescale_qrels_graded tests (synthetic, no file I/O) --")
+    test_rescale_0_2_to_0_5()
+    test_rescale_0_2_to_0_7()
+    test_rescale_identity()
+    test_rescale_preserves_topic_structure()
+    test_rescale_filters_zeroed_scores()
+    test_rescale_returns_new_dict()
+    test_rescale_invalid_max_score_orig()
+    test_rescale_relative_order_preserved()
 
     print("\n-- Rebuild tests (slow: re-reads submissions.json) --")
     print("  Loading corpus PMIDs for filter check...")

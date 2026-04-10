@@ -1,0 +1,27 @@
+\begin{thebibliography}{1}
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\urlprefix}{URL }
+\providecommand{\doi}[1]{https://doi.org/#1}
+
+\bibitem{rrf2009}
+Cormack, G.V., Clarke, C.L.A., Buettcher, S.: Reciprocal rank fusion
+  outperforms {Condorcet} and individual rank learning methods. In: Proceedings
+  of ACM SIGIR. pp. 758--759 (2009)
+
+\bibitem{biogen2024}
+Demner-Fushman, D., et~al.: {TREC} 2024 biomedical generative retrieval
+  ({BioGen}) track overview. In: Proceedings of the 33rd Text REtrieval
+  Conference (TREC 2024). NIST (2024)
+
+\bibitem{medcpt2023}
+Jin, Q., et~al.: {MedCPT}: Contrastive pre-trained transformers with
+  large-scale {PubMed} search logs for zero-shot biomedical information
+  retrieval. Bioinformatics  \textbf{39}(11) (2023).
+  \doi{10.1093/bioinformatics/btad651}
+
+\bibitem{robertson1994bm25}
+Robertson, S.E., Walker, S.: Some simple effective approximations to the
+  2-{Poisson} model for probabilistic weighted retrieval. In: Proceedings of
+  the 17th ACM SIGIR Conference. pp. 232--241. Springer (1994)
+
+\end{thebibliography}

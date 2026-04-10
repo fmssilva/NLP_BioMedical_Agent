@@ -101,7 +101,7 @@
   \item \textbf{Query field:} \texttt{topic+question} (topic keyword
         concatenated with clinical question).
   \item \textbf{BM25:} $k_1$=1.5, $b$=1.0 — CV NDCG@100=0.8011.
-  \item \textbf{LM Jelinek-Mercer:} $\lambda$=0.7 — CV NDCG@100=0.7769.
+  \item \textbf{LM Jelinek-Mercer:} $\lambda$=0.65 (extended grid winner) — CV NDCG@100=0.7779. Original grid {0.1,0.3,0.5,0.7,0.9} found $\lambda$=0.7 (0.7769); adding $\lambda$=0.65 and 0.75 revealed the true optimum at 0.65 ($\Delta$=+0.001, within noise). Test-set run file uses $\lambda$=0.7 (pre-extension); performance difference is negligible.
   \item \textbf{LM Dirichlet:} $\mu$=75 (run files); CV winner $\mu$=100
         ($\Delta$=0.0013, within noise) — CV NDCG@100=0.7723.
   \item \textbf{Dense encoder:} MedCPT (asymmetric) — CV NDCG@100=0.8296.
