@@ -11,17 +11,22 @@ from src.data.loader import load_corpus
 ######################################################################
 
 
-# Default graded relevance mapping for local testing
+# Default graded relevance mapping — 0–5 scale (project default).
+# supporting=5, neutral=2 gives better NDCG separation than 0–2:
+#   DCG gain(5) = 2^5 − 1 = 31  vs  gain(2) = 2^2 − 1 = 3  →  supporting docs
+#   count ~10× more than neutral, which better reflects their importance.
+# §3.1.1 confirms rankings are stable across 0–2 / 0–5 / 0–7 scales.
 _DEFAULT_GRADED_SCORE = {
-    "supporting":       2,  # cited as clear evidence support
-    "neutral":          1,  # mentioned but neither supports nor contradicts
+    "supporting":       5,  # strong evidence — full relevance
+    "neutral":          2,  # mentioned but not clearly supporting — partial relevance
     "not relevant":     0,
     "contradicting":    0,
     "invalid citation": 0,
 }
 # Binary view = graded filtered at this threshold.
-# score >= 2 means "supporting only" -- only strong evidence counts as relevant.
-_DEFAULT_BINARY_THRESHOLD = 2
+# score >= 5 means "supporting only" — only strong evidence counts as binary-relevant.
+# Use threshold=2 to include neutral docs in the binary view.
+_DEFAULT_BINARY_THRESHOLD = 5
 
 # Default paths relative to project root for local testing 
 _ROOT = Path(__file__).resolve().parents[2]
@@ -34,12 +39,12 @@ def build_qrels_graded(
 ) -> dict:
     """
     Build graded qrels from biogen_2024_submissions.json.
-    For each (topic, PMID) pair: 
+    For each (topic, PMID) pair:
         - score = MAX graded score across all citations/systems.
         - Max wins: one strong citation beats many weak ones.
-    Supporting -> 2, neutral -> 1, others -> 0
+    Default scale (0–5): supporting=5, neutral=2, others=0.
     Only stores PMIDs with score >= 1 (0-score = irrelevant; standard IR practice:
-        - not listed in qrels = assumed non-relevant for trec_eval / ranx).
+        not listed in qrels = assumed non-relevant for trec_eval / ranx).
     """
     if graded_score is None:
         graded_score = _DEFAULT_GRADED_SCORE
@@ -115,25 +120,29 @@ def build_qrels(
 def rescale_qrels_graded(
     qrels_graded: dict,
     max_score_new: int,
-    max_score_orig: int = 2,
+    max_score_orig: int = 5,
 ) -> dict:
     """
     Linearly rescale graded qrels from the original 0–max_score_orig scale
     to a new 0–max_score_new scale (rounding to nearest integer).
 
-    Example:
-        rescale_qrels_graded(qrels, max_score_new=5, max_score_orig=2)
-        maps  0 → 0,  1 → 3,  2 → 5   (linear, rounded)
+    The project default scale is 0–5 (supporting=5, neutral=2).
+    Use this function only in §3.1.1 to produce 0–2 and 0–7 variants
+    for the scale-sensitivity comparison.
 
-        rescale_qrels_graded(qrels, max_score_new=7, max_score_orig=2)
-        maps  0 → 0,  1 → 4,  2 → 7   (linear, rounded, 0.5 → 4 by Python rounding)
+    Example (default base = 0–5):
+        rescale_qrels_graded(qrels, max_score_new=2,  max_score_orig=5)
+        maps  5 → 2,  2 → 1   (0–2 scale — original TREC convention)
+
+        rescale_qrels_graded(qrels, max_score_new=7,  max_score_orig=5)
+        maps  5 → 7,  2 → 3   (0–7 scale — finer-grained)
 
     Only entries with score >= 1 are kept (same convention as build_qrels_graded).
 
     Args:
         qrels_graded:   {topic_id: {pmid: int_score}}  — standard output of build_qrels_graded.
-        max_score_new:  target maximum score (e.g. 5 or 7).
-        max_score_orig: current maximum score (default 2, matching GRADED_SCORE above).
+        max_score_new:  target maximum score (e.g. 2 or 7).
+        max_score_orig: current maximum score (default 5, matching the project GRADED_SCORE).
 
     Returns:
         New qrels dict with rescaled integer scores.
@@ -205,39 +214,39 @@ def print_qrels_summary(
     print(f"\n{'='*60}")
     print("Qrels score distribution (corpus-filtered, unique per topic)")
     print(f"{'='*60}")
-    print(f"  score=2 (supporting)  : {score_cnt[2]:>5}  ({score_cnt[2]/total_graded*100:.1f}%)")
-    print(f"  score=1 (neutral)     : {score_cnt[1]:>5}  ({score_cnt[1]/total_graded*100:.1f}%)")
+    print(f"  score=5 (supporting)  : {score_cnt[5]:>5}  ({score_cnt[5]/total_graded*100:.1f}%)")
+    print(f"  score=2 (neutral)     : {score_cnt[2]:>5}  ({score_cnt[2]/total_graded*100:.1f}%)")
     print(f"  total graded PMIDs    : {total_graded:>5}")
     print(f"  total binary PMIDs    : {total_binary:>5}  (score >= {binary_threshold} = supporting only)")
 
     # -- per-topic stats --
+    per_s5 = [sum(1 for s in d.values() if s == 5) for d in qrels_graded.values()]
     per_s2 = [sum(1 for s in d.values() if s == 2) for d in qrels_graded.values()]
-    per_s1 = [sum(1 for s in d.values() if s == 1) for d in qrels_graded.values()]
-    no_neutral = sum(1 for x in per_s1 if x == 0)
+    no_neutral = sum(1 for x in per_s2 if x == 0)
 
     print(f"\n{'='*60}")
     print("Per-topic statistics")
     print(f"{'='*60}")
     print(f"  avg relevant/topic (binary)    : {total_binary/len(qrels_binary):.1f}")
-    print(f"  supporting (score=2)/topic      : avg={sum(per_s2)/len(per_s2):.1f}  min={min(per_s2)}  max={max(per_s2)}")
-    print(f"  neutral    (score=1)/topic      : avg={sum(per_s1)/len(per_s1):.1f}  min={min(per_s1)}  max={max(per_s1)}")
+    print(f"  supporting (score=5)/topic      : avg={sum(per_s5)/len(per_s5):.1f}  min={min(per_s5)}  max={max(per_s5)}")
+    print(f"  neutral    (score=2)/topic      : avg={sum(per_s2)/len(per_s2):.1f}  min={min(per_s2)}  max={max(per_s2)}")
     print(f"  topics with no neutral entries  : {no_neutral} / {len(qrels_graded)}")
 
-    # -- sample topic (one with both score=2 and score=1 entries) --
+    # -- sample topic (one with both score=5 and score=2 entries) --
     sample_qid = next(
         (qid for qid, docs in qrels_graded.items()
-         if any(s == 1 for s in docs.values()) and any(s == 2 for s in docs.values())),
+         if any(s == 2 for s in docs.values()) and any(s == 5 for s in docs.values())),
         next(iter(qrels_graded))
     )
     sample = qrels_graded[sample_qid]
+    s5_pmids = [p for p, s in sample.items() if s == 5]
     s2_pmids = [p for p, s in sample.items() if s == 2]
-    s1_pmids = [p for p, s in sample.items() if s == 1]
 
     print(f"\n{'='*60}")
     print(f"Sample topic: {sample_qid}  ({len(sample)} graded PMIDs total)")
     print(f"{'='*60}")
-    print(f"  score=2 (supporting): {s2_pmids[:4]}{'...' if len(s2_pmids) > 4 else ''}  [{len(s2_pmids)} total]")
-    print(f"  score=1 (neutral)   : {s1_pmids[:4]}{'...' if len(s1_pmids) > 4 else ''}  [{len(s1_pmids)} total]")
+    print(f"  score=5 (supporting): {s5_pmids[:4]}{'...' if len(s5_pmids) > 4 else ''}  [{len(s5_pmids)} total]")
+    print(f"  score=2 (neutral)   : {s2_pmids[:4]}{'...' if len(s2_pmids) > 4 else ''}  [{len(s2_pmids)} total]")
     print(f"  (score=0 not stored — trec_eval assumes unlisted = non-relevant)")
 
 

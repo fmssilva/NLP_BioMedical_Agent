@@ -49,23 +49,25 @@ def test_saved_structure():
 
 
 def test_graded_structure():
-    # qrels_graded.json must be dict[str, dict[str, int]] with scores in {1,2}
+    # qrels_graded.json uses 0–5 scale: neutral=2, supporting=5.
+    # Valid scores in the file are {2, 5} (0-score docs are not stored).
     qrels = _load_json(GRADED_JSON)
     assert isinstance(qrels, dict), "qrels_graded.json root must be a dict"
+    valid_scores = {2, 5}
     for qid, docs in qrels.items():
         assert isinstance(qid, str), f"query_id must be str, got {type(qid)}"
         assert isinstance(docs, dict), f"topic {qid} value must be dict"
         for pmid, score in docs.items():
             assert isinstance(pmid, str), f"doc_id must be str in topic {qid}"
-            assert score in (1, 2), (
-                f"Graded score must be 1 or 2, got {score} for topic {qid} PMID {pmid}"
+            assert score in valid_scores, (
+                f"Graded score must be in {valid_scores}, got {score} for topic {qid} PMID {pmid}"
             )
-    print(f"  [OK] graded structure: {len(qrels)} topics, all scores in {{1,2}}")
+    print(f"  [OK] graded structure: {len(qrels)} topics, all scores in {{2,5}} (0-5 scale)")
 
 
 def test_graded_superset_of_binary():
-    # Every (topic, PMID) in binary must be in graded with score==2.
-    # Graded may have extra entries (neutral, score=1).
+    # Every (topic, PMID) in binary must be in graded with score==5 (supporting).
+    # Graded may have extra entries (neutral, score=2).
     binary = _load_json(BINARY_JSON)
     graded = _load_json(GRADED_JSON)
 
@@ -79,20 +81,20 @@ def test_graded_superset_of_binary():
             assert pmid in graded[qid], (
                 f"Topic {qid} PMID {pmid}: in binary but missing from graded"
             )
-            assert graded[qid][pmid] == 2, (
-                f"Topic {qid} PMID {pmid}: in binary so must be score=2 in graded, got {graded[qid][pmid]}"
+            assert graded[qid][pmid] == 5, (
+                f"Topic {qid} PMID {pmid}: in binary so must be score=5 in graded, got {graded[qid][pmid]}"
             )
-    print(f"  [OK] graded is superset of binary: all binary PMIDs -> graded score=2")
+    print(f"  [OK] graded is superset of binary: all binary PMIDs -> graded score=5")
 
 
 def test_binary_derivable_from_graded():
-    # The binary view can be derived from graded by filtering score >= 2.
+    # The binary view can be derived from graded by filtering score >= 5 (supporting only).
     # This verifies the "single source of truth" approach.
     binary = _load_json(BINARY_JSON)
     graded = _load_json(GRADED_JSON)
 
     derived_binary = {
-        qid: {pmid: 1 for pmid, s in docs.items() if s >= 2}
+        qid: {pmid: 1 for pmid, s in docs.items() if s >= 5}
         for qid, docs in graded.items()
     }
     # Remove empty topics (shouldn't happen, but be safe)
@@ -106,7 +108,7 @@ def test_binary_derivable_from_graded():
         assert set(derived_binary[qid].keys()) == set(binary[qid].keys()), (
             f"Topic {qid}: PMID set differs between derived and binary qrels"
         )
-    print(f"  [OK] binary is perfectly derivable from graded with score>=2 threshold")
+    print(f"  [OK] binary is perfectly derivable from graded with score>=5 threshold")
 
 
 def test_corpus_membership():
@@ -125,19 +127,19 @@ def test_corpus_membership():
 
 
 def test_score_distribution():
-    # Sanity check: expected approximate score counts based on known data.
+    # Sanity check: expected approximate score counts based on known data (0-5 scale).
     graded = _load_json(GRADED_JSON)
-    score_counts = {1: 0, 2: 0}
+    score_counts = {2: 0, 5: 0}
     for docs in graded.values():
         for s in docs.values():
             score_counts[s] = score_counts.get(s, 0) + 1
 
     total = sum(score_counts.values())
-    print(f"  Graded score distribution: score=2: {score_counts[2]}, score=1: {score_counts[1]}, total: {total}")
-    # from the data: ~2999 supporting (score=2), ~218 neutral (score=1), total ~3217
-    assert score_counts[2] > 2000, f"Too few score=2 entries: {score_counts[2]}"
-    assert score_counts[1] > 0,   f"No neutral (score=1) entries found — unexpected"
-    assert total == score_counts[1] + score_counts[2], "Score counts don't add up"
+    print(f"  Graded score distribution (0-5 scale): score=5: {score_counts[5]}, score=2: {score_counts[2]}, total: {total}")
+    # from the data: ~2999 supporting (score=5), ~218 neutral (score=2), total ~3217
+    assert score_counts[5] > 2000, f"Too few score=5 entries: {score_counts[5]}"
+    assert score_counts[2] > 0,   f"No neutral (score=2) entries found — unexpected"
+    assert total == score_counts[2] + score_counts[5], "Score counts don't add up"
     print(f"  [OK] score distribution in expected range")
 
 
@@ -196,13 +198,13 @@ def test_rebuild_graded_matches_saved(corpus_pmids: set):
 
 
 def test_graded_score_mapping():
-    # Verify the _DEFAULT_GRADED_SCORE constant has exactly the expected entries.
-    assert _DEFAULT_GRADED_SCORE["supporting"]       == 2
-    assert _DEFAULT_GRADED_SCORE["neutral"]          == 1
+    # Verify the _DEFAULT_GRADED_SCORE constant uses the 0-5 scale.
+    assert _DEFAULT_GRADED_SCORE["supporting"]       == 5
+    assert _DEFAULT_GRADED_SCORE["neutral"]          == 2
     assert _DEFAULT_GRADED_SCORE["not relevant"]     == 0
     assert _DEFAULT_GRADED_SCORE["contradicting"]    == 0
     assert _DEFAULT_GRADED_SCORE["invalid citation"] == 0
-    print(f"  [OK] _DEFAULT_GRADED_SCORE mapping is correct")
+    print(f"  [OK] _DEFAULT_GRADED_SCORE mapping is correct (0-5 scale)")
 
 
 # ── Small synthetic test (no file I/O) ────────────────────────────────────
@@ -264,12 +266,12 @@ def test_synthetic_build():
     assert set(binary["999"].keys()) == {"AAA", "DDD"}, f"Binary wrong: {binary['999']}"
     assert all(s == 1 for s in binary["999"].values())
 
-    # Graded: AAA=2 (supporting wins over neutral), BBB=1 (neutral), DDD=2 (supporting)
+    # Graded (0-5 scale): AAA=5 (supporting wins over neutral), BBB=2 (neutral), DDD=5 (supporting)
     graded = build_qrels_graded(tmp_path)
     assert "999" in graded
-    assert graded["999"]["AAA"] == 2, f"AAA should be 2, got {graded['999']['AAA']}"
-    assert graded["999"]["BBB"] == 1, f"BBB should be 1 (neutral), got {graded['999']['BBB']}"
-    assert graded["999"]["DDD"] == 2, f"DDD should be 2, got {graded['999']['DDD']}"
+    assert graded["999"]["AAA"] == 5, f"AAA should be 5, got {graded['999']['AAA']}"
+    assert graded["999"]["BBB"] == 2, f"BBB should be 2 (neutral), got {graded['999']['BBB']}"
+    assert graded["999"]["DDD"] == 5, f"DDD should be 5, got {graded['999']['DDD']}"
     assert "CCC" not in graded["999"], "CCC is contradicting — should not appear in graded (score=0 filtered)"
 
     tmp_path.unlink()
@@ -278,38 +280,48 @@ def test_synthetic_build():
 
 # ── rescale_qrels_graded tests (synthetic, no file I/O) ───────────────────
 
+def test_rescale_0_5_to_0_2():
+    # 0-5 scale (project default) -> 0-2: factor = 2/5 = 0.4
+    # score 5 -> round(5*0.4) = round(2.0) = 2
+    # score 2 -> round(2*0.4) = round(0.8) = 1
+    qrels = {"q1": {"A": 5, "B": 2}}
+    out = rescale_qrels_graded(qrels, max_score_new=2, max_score_orig=5)
+    assert out["q1"]["A"] == 2, f"score 5->2 failed: got {out['q1']['A']}"
+    assert out["q1"]["B"] == 1, f"score 2->1 failed: got {out['q1']['B']}"
+    print(f"  [OK] rescale 0-5->0-2: score 5 -> 2, score 2 -> 1")
+
+def test_rescale_0_5_to_0_7():
+    # 0-5 scale -> 0-7: factor = 7/5 = 1.4
+    # score 5 -> round(5*1.4) = round(7.0) = 7
+    # score 2 -> round(2*1.4) = round(2.8) = 3
+    qrels = {"q1": {"A": 5, "B": 2}}
+    out = rescale_qrels_graded(qrels, max_score_new=7, max_score_orig=5)
+    assert out["q1"]["A"] == 7, f"score 5->7 failed: got {out['q1']['A']}"
+    assert out["q1"]["B"] == 3, f"score 2->3 failed: got {out['q1']['B']}"
+    print(f"  [OK] rescale 0-5->0-7: score 5 -> 7, score 2 -> 3")
+
 def test_rescale_0_2_to_0_5():
-    # 0-2 scale -> 0-5: factor = 5/2 = 2.5
+    # Explicit 0-2 base -> 0-5: factor = 5/2 = 2.5
     # score 1 -> round(1*2.5) = round(2.5) = 2 (Python banker's rounding: round half to even)
     # score 2 -> round(2*2.5) = 5
     qrels = {"q1": {"A": 2, "B": 1}}
-    out = rescale_qrels_graded(qrels, max_score_new=5)
+    out = rescale_qrels_graded(qrels, max_score_new=5, max_score_orig=2)
     assert out["q1"]["A"] == 5, f"score 2->5 failed: got {out['q1']['A']}"
     assert out["q1"]["B"] == 2, f"score 1->2 failed: got {out['q1']['B']}"
     print(f"  [OK] rescale 0-2->0-5: score 2 -> 5, score 1 -> 2")
 
-def test_rescale_0_2_to_0_7():
-    # 0-2 scale -> 0-7: factor = 7/2 = 3.5
-    # score 1 -> round(1*3.5) = round(3.5) = 4 (Python banker's rounding: round half to even)
-    # score 2 -> round(2*3.5) = 7
-    qrels = {"q1": {"A": 2, "B": 1}}
-    out = rescale_qrels_graded(qrels, max_score_new=7)
-    assert out["q1"]["A"] == 7, f"score 2->7 failed: got {out['q1']['A']}"
-    assert out["q1"]["B"] == 4, f"score 1->4 failed: got {out['q1']['B']}"
-    print(f"  [OK] rescale 0-2->0-7: score 2 -> 7, score 1 -> 4")
-
 def test_rescale_identity():
     # rescale to same max -> scores unchanged
-    qrels = {"q1": {"A": 2, "B": 1}}
-    out = rescale_qrels_graded(qrels, max_score_new=2, max_score_orig=2)
-    assert out["q1"]["A"] == 2
-    assert out["q1"]["B"] == 1
-    print(f"  [OK] rescale identity (0-2->0-2): scores unchanged")
+    qrels = {"q1": {"A": 5, "B": 2}}
+    out = rescale_qrels_graded(qrels, max_score_new=5, max_score_orig=5)
+    assert out["q1"]["A"] == 5
+    assert out["q1"]["B"] == 2
+    print(f"  [OK] rescale identity (0-5->0-5): scores unchanged")
 
 def test_rescale_preserves_topic_structure():
     # all topics/PMIDs with score>=1 must be preserved
-    qrels = {"q1": {"A": 2, "B": 1}, "q2": {"C": 2}}
-    out = rescale_qrels_graded(qrels, max_score_new=5)
+    qrels = {"q1": {"A": 5, "B": 2}, "q2": {"C": 5}}
+    out = rescale_qrels_graded(qrels, max_score_new=7, max_score_orig=5)
     assert set(out.keys()) == {"q1", "q2"}
     assert "A" in out["q1"] and "B" in out["q1"]
     assert "C" in out["q2"]
@@ -317,10 +329,9 @@ def test_rescale_preserves_topic_structure():
 
 def test_rescale_filters_zeroed_scores():
     # if a score would rescale to 0, it should be filtered out
-    # With max_new=1, max_orig=2: score 1 -> round(0.5)=0 (banker's rounding), score 2->1
-    qrels = {"q1": {"A": 2, "B": 1}}
-    out = rescale_qrels_graded(qrels, max_score_new=1, max_score_orig=2)
-    # A (score=2) -> 1, kept; B (score=1) -> round(0.5)=0, dropped
+    # With max_new=1, max_orig=5: score 2 -> round(2/5) = round(0.4)=0 (dropped); score 5->1 (kept)
+    qrels = {"q1": {"A": 5, "B": 2}}
+    out = rescale_qrels_graded(qrels, max_score_new=1, max_score_orig=5)
     assert "A" in out["q1"], f"A should be kept with score 1"
     assert out["q1"]["A"] == 1
     assert "B" not in out.get("q1", {}), f"B should be filtered (maps to 0)"
@@ -328,16 +339,16 @@ def test_rescale_filters_zeroed_scores():
 
 def test_rescale_returns_new_dict():
     # must not mutate the input qrels
-    qrels = {"q1": {"A": 2}}
-    out = rescale_qrels_graded(qrels, max_score_new=5)
-    assert qrels["q1"]["A"] == 2, "original qrels was mutated"
+    qrels = {"q1": {"A": 5}}
+    out = rescale_qrels_graded(qrels, max_score_new=2)
+    assert qrels["q1"]["A"] == 5, "original qrels was mutated"
     assert out is not qrels,      "returned same object — should be a new dict"
     print(f"  [OK] rescale returns a new dict (original not mutated)")
 
 def test_rescale_invalid_max_score_orig():
     # max_score_orig <= 0 must raise
     try:
-        rescale_qrels_graded({"q1": {"A": 2}}, max_score_new=5, max_score_orig=0)
+        rescale_qrels_graded({"q1": {"A": 5}}, max_score_new=2, max_score_orig=0)
         assert False, "Should have raised ValueError"
     except ValueError:
         pass
@@ -345,13 +356,13 @@ def test_rescale_invalid_max_score_orig():
 
 def test_rescale_relative_order_preserved():
     # relative order of PMIDs must not change after rescaling
-    qrels = {"q1": {"A": 2, "B": 1}}
-    for target_max in [3, 5, 7, 10]:
-        out = rescale_qrels_graded(qrels, max_score_new=target_max)
+    qrels = {"q1": {"A": 5, "B": 2}}
+    for target_max in [2, 3, 7, 10]:
+        out = rescale_qrels_graded(qrels, max_score_new=target_max, max_score_orig=5)
         assert out["q1"]["A"] > out["q1"]["B"], (
             f"Order inverted at target_max={target_max}: A={out['q1']['A']}, B={out['q1']['B']}"
         )
-    print(f"  [OK] rescale preserves relative score ordering for targets 3, 5, 7, 10")
+    print(f"  [OK] rescale preserves relative score ordering for targets 2, 3, 7, 10")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────
@@ -375,8 +386,9 @@ if __name__ == "__main__":
     test_graded_score_mapping()
 
     print("\n-- rescale_qrels_graded tests (synthetic, no file I/O) --")
+    test_rescale_0_5_to_0_2()
+    test_rescale_0_5_to_0_7()
     test_rescale_0_2_to_0_5()
-    test_rescale_0_2_to_0_7()
     test_rescale_identity()
     test_rescale_preserves_topic_structure()
     test_rescale_filters_zeroed_scores()
