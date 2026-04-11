@@ -1,8 +1,8 @@
+import logging
 import numpy as np
 import torch
 import torch.nn.functional as F
 from transformers import AutoModel, AutoTokenizer
-
 
 ######################################################################
 ## Sentence/batch encoder — pluggable pooling + L2 normalisation.
@@ -13,6 +13,14 @@ from transformers import AutoModel, AutoTokenizer
 ##
 ## Singleton cache per (model_name, device, pooling_mode) triple.
 ######################################################################
+
+# Suppress the harmless "UNEXPECTED key: embeddings.position_ids" warning that
+# MPNet checkpoints emit when loaded via AutoModel.  MPNet saves position_ids as
+# a persistent buffer in the checkpoint; the generic AutoModel loader flags it as
+# unexpected, but the buffer is recomputed at runtime and the warning is safe to
+# ignore.  We only silence the specific transformers loading logger to avoid
+# hiding real errors from other modules.
+logging.getLogger("transformers.modeling_utils").setLevel(logging.ERROR)
 
 # Default constants for local testing
 _DEFAULT_MODEL_NAME = "sentence-transformers/msmarco-distilbert-base-v2"

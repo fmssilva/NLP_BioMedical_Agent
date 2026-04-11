@@ -10,12 +10,17 @@ Public API:
     plot_per_topic_variance(per_topic_ap, save_path)                   -- AP box plot per strategy
     plot_individual_pr_curves(per_query_curves, ap_scores,             -- 3 highlighted individual PR curves
                               highlight_ids, title, save_path)
+    plot_ndcg_scale_sensitivity(results, scale_labels, save_path)      -- NDCG across 3 qrel scales (§3.1.1)
+    plot_baseline_vs_tuned(baseline_results, tuned_results, save_path) -- all-metric grouped bar (§4.3)
+    plot_tuning_gain(baseline_results, tuned_results, save_path)       -- Δ NDCG@100 / Δ MAP bars (§4.3)
 
 `strategy_curves` format: {strategy_name: (recall_levels, mean_precisions)}
 `metric_dict`     format: {strategy_name: {"MAP": float, "MRR": float, "P@10": float}}
 `per_topic_ap`    format: {strategy_name: [ap_q1, ap_q2, ...]}
 `per_query_curves` format: {topic_id: (recalls, precisions)}    -- raw (not interpolated) PR points
 `highlight_ids`   format: {"best": topic_id, "worst": topic_id, "extra": topic_id}
+`results`         format: {strategy_name: {scale_label: ndcg_value}}  -- for scale sensitivity plot
+`baseline_results`/ `tuned_results` format: {strategy_name: {"MAP": float, "MRR": float, ...}}
 
 Lab03 reference: Lab03_Retrieval_Evaluation.ipynb lines 438-488, 811-855.
 """
@@ -346,6 +351,260 @@ def plot_individual_pr_curves(
         print(f"[plots] Saved individual PR curves -> {save_path}")
     return fig
 
+
+
+# --- Plot: NDCG scale sensitivity (§3.1.1) ------------------------------------
+
+def plot_ndcg_scale_sensitivity(
+    results: dict[str, dict[str, float]],
+    scale_labels: list[str] | None = None,
+    title: str = "NDCG@100 Stability Across Relevance Scales",
+    save_path: str | None = None,
+) -> plt.Figure:
+    """
+    Grouped bar chart showing NDCG@100 for each strategy across multiple
+    qrel relevance scales (e.g., 0-2, 0-5, 0-7).
+
+    Parameters
+    ----------
+    results      : {strategy_name: {scale_label: ndcg_value}}
+    scale_labels : ordered list of scale labels to display; if None, inferred from results
+    title        : plot title
+    save_path    : optional path to save the figure
+
+    Returns
+    -------
+    matplotlib Figure
+    """
+    strategies = list(results.keys())
+    if scale_labels is None:
+        scale_labels = list(next(iter(results.values())).keys())
+
+    n_strategies = len(strategies)
+    n_scales     = len(scale_labels)
+    x = np.arange(n_strategies)
+    bar_w = 0.8 / n_scales
+
+    scale_colors = ["#90B8E0", "#1F6EBD", "#0A2A5A"][:n_scales]
+
+    fig, ax = plt.subplots(figsize=(max(8, n_strategies * 1.4), 5))
+
+    for i, (scale_lbl, color) in enumerate(zip(scale_labels, scale_colors)):
+        vals = [results[s].get(scale_lbl, 0) for s in strategies]
+        offset = (i - n_scales / 2 + 0.5) * bar_w
+        bars = ax.bar(x + offset, vals, bar_w, label=scale_lbl, color=color,
+                      edgecolor="white", linewidth=0.6)
+        for bar in bars:
+            ax.text(bar.get_x() + bar.get_width() / 2,
+                    bar.get_height() + 0.003,
+                    f"{bar.get_height():.4f}",
+                    ha="center", va="bottom", fontsize=7.5, color="#333")
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(strategies, fontsize=10, rotation=15, ha="right")
+    ax.set_ylabel("NDCG@100", fontsize=10)
+    ax.set_title(title, fontsize=12, fontweight="bold")
+    ax.set_ylim(0, 1.08)
+    ax.legend(title="Relevance scale", fontsize=9)
+    ax.grid(axis="y", linestyle="--", alpha=0.4)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    plt.tight_layout()
+
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"[plots] Saved scale sensitivity -> {save_path}")
+    return fig
+
+
+# --- Plot: Baseline vs Tuned — all metrics (§4.3) ----------------------------
+
+def plot_baseline_vs_tuned(
+    baseline_results: dict[str, dict],
+    tuned_results: dict[str, dict],
+    base_strats: list[str]  | None = None,
+    tuned_strats: list[str] | None = None,
+    display_names: list[str]| None = None,
+    metrics: list[str] | None = None,
+    title: str = "Baseline vs Tuned — All Metrics on Test Set",
+    save_path: str | None = None,
+) -> plt.Figure:
+    """
+    Grouped bar chart (one subplot per metric) comparing baseline vs tuned
+    performance for each strategy.
+
+    Parameters
+    ----------
+    baseline_results : {strategy_name: {metric: float}}
+    tuned_results    : {strategy_name: {metric: float}}
+    base_strats      : ordered list of keys into baseline_results
+    tuned_strats     : ordered list of keys into tuned_results (same order as base_strats)
+    display_names    : x-axis labels (same length as base_strats)
+    metrics          : list of metric names to plot (default: MAP, MRR, P@10, R@100, NDCG@100)
+    title            : suptitle
+    save_path        : optional save path
+
+    Returns
+    -------
+    matplotlib Figure
+    """
+    if metrics is None:
+        metrics = ["MAP", "MRR", "P@10", "R@100", "NDCG@100"]
+    metric_labels = [m.replace("@", "\n@") for m in metrics]
+
+    if base_strats is None:
+        base_strats = list(baseline_results.keys())
+    if tuned_strats is None:
+        tuned_strats = list(tuned_results.keys())
+    if display_names is None:
+        display_names = base_strats
+
+    n = len(display_names)
+    colors_base  = ["#90B8E0", "#F5A97A", "#A3D9A5", "#D9A5D9", "#F5D57A"][:n]
+    colors_tuned = ["#1F6EBD", "#D05A14", "#2E8B57", "#8B2FC9", "#C9A800"][:n]
+
+    fig, axes = plt.subplots(1, len(metrics), figsize=(18, 5), sharey=False)
+    fig.suptitle(title, fontsize=14, fontweight="bold", y=1.02)
+
+    x    = np.arange(n)
+    bw   = 0.35
+
+    for ax, metric, mlabel in zip(axes, metrics, metric_labels):
+        bvals = [baseline_results.get(b, {}).get(metric, 0) for b in base_strats]
+        tvals = [tuned_results.get(t, {}).get(metric, 0)    for t in tuned_strats]
+
+        bars_b = ax.bar(x - bw / 2, bvals, bw, color=colors_base,
+                        edgecolor="white", linewidth=0.5)
+        bars_t = ax.bar(x + bw / 2, tvals, bw, color=colors_tuned,
+                        edgecolor="white", linewidth=0.5)
+
+        for bar in bars_b:
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.005,
+                    f"{bar.get_height():.3f}", ha="center", va="bottom",
+                    fontsize=6.5, color="#555")
+        for bar in bars_t:
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.005,
+                    f"{bar.get_height():.3f}", ha="center", va="bottom",
+                    fontsize=6.5, fontweight="bold", color="#111")
+
+        ax.set_title(mlabel, fontsize=11, fontweight="bold")
+        ax.set_xticks(x)
+        ax.set_xticklabels(display_names, fontsize=8, rotation=20, ha="right")
+        ax.set_ylim(0, 1.05)
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.2f}"))
+        ax.tick_params(axis="y", labelsize=8)
+        ax.grid(axis="y", linestyle="--", alpha=0.4)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+    import matplotlib.patches as mpatches
+    legend_patches = [
+        mpatches.Patch(color="#888888", label="Baseline (default params)"),
+        mpatches.Patch(color="#222222", label="Tuned (locked §3 params)"),
+    ]
+    fig.legend(handles=legend_patches, loc="upper right", ncol=2,
+               fontsize=9, framealpha=0.9, bbox_to_anchor=(1.0, 1.0))
+    fig.tight_layout()
+
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"[plots] Saved baseline_vs_tuned -> {save_path}")
+    return fig
+
+
+# --- Plot: Tuning gain — Δ NDCG@100 and Δ MAP (§4.3) -------------------------
+
+def plot_tuning_gain(
+    baseline_results: dict[str, dict],
+    tuned_results: dict[str, dict],
+    pairs: list[tuple[str, str]] | None = None,
+    comp_labels: list[str] | None = None,
+    title: str = "Tuning Gain on Test Set (Tuned − Baseline)",
+    save_path: str | None = None,
+) -> plt.Figure:
+    """
+    Side-by-side bar charts showing Δ NDCG@100 and Δ MAP per strategy
+    (tuned score minus baseline score).
+
+    Parameters
+    ----------
+    baseline_results : {strategy_name: {metric: float}}
+    tuned_results    : {strategy_name: {metric: float}}
+    pairs            : [(baseline_key, tuned_key), ...] — matched strategy pairs
+    comp_labels      : display labels for x-axis (same length as pairs)
+    title            : suptitle
+    save_path        : optional save path
+
+    Returns
+    -------
+    matplotlib Figure
+    """
+    if pairs is None:
+        pairs = [
+            ("BM25",    "BM25 (tuned)"),
+            ("LM-Dir",  "LM-Dir (mu=75)"),
+            ("KNN",     "KNN (MedCPT)"),
+            ("RRF",     "RRF (tuned)"),
+        ]
+    if comp_labels is None:
+        comp_labels = [b for b, _ in pairs]
+
+    delta_ndcg, delta_map = [], []
+    for bkey, tkey in pairs:
+        b = baseline_results.get(bkey, {})
+        t = tuned_results.get(tkey, {})
+        delta_ndcg.append(t.get("NDCG@100", 0) - b.get("NDCG@100", 0))
+        delta_map.append( t.get("MAP",      0) - b.get("MAP",      0))
+
+    fig, (ax_ndcg, ax_map) = plt.subplots(1, 2, figsize=(11, 4))
+    fig.suptitle(title, fontsize=13, fontweight="bold")
+
+    def _gain_bar(ax, deltas, subtitle,
+                  color_pos: str = "#2E8B57", color_neg: str = "#C0392B") -> None:
+        xpos   = np.arange(len(comp_labels))
+        colors = [color_pos if d >= 0 else color_neg for d in deltas]
+        bars   = ax.bar(xpos, deltas, color=colors,
+                        edgecolor="white", linewidth=0.7, width=0.55)
+        ax.axhline(0, color="black", linewidth=0.8)
+        for bar, d in zip(bars, deltas):
+            yoff = 0.0015 if d >= 0 else -0.004
+            va   = "bottom" if d >= 0 else "top"
+            ax.text(bar.get_x() + bar.get_width() / 2,
+                    bar.get_height() + yoff,
+                    f"{d:+.4f}", ha="center", va=va,
+                    fontsize=10, fontweight="bold", color="#111")
+        ax.set_xticks(xpos)
+        ax.set_xticklabels(comp_labels, fontsize=11)
+        ax.set_title(subtitle, fontsize=11, fontweight="bold")
+        ax.set_ylabel("Δ metric (tuned − baseline)", fontsize=9)
+        ax.grid(axis="y", linestyle="--", alpha=0.35)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+    _gain_bar(ax_ndcg, delta_ndcg, "Δ NDCG@100")
+    _gain_bar(ax_map,  delta_map,  "Δ MAP")
+
+    ax_ndcg.text(
+        0.02, 0.97,
+        "Green = tuning helped on test set\nRed = tuning had no effect or hurt",
+        transform=ax_ndcg.transAxes, fontsize=8, va="top",
+        bbox=dict(boxstyle="round,pad=0.3", fc="lightyellow", ec="#ccc", alpha=0.8),
+    )
+
+    fig.tight_layout()
+
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"[plots] Saved tuning_gain -> {save_path}")
+
+    # print summary to stdout
+    for lbl, dn, dm in zip(comp_labels, delta_ndcg, delta_map):
+        direction = ("improved" if dn > 0.001
+                     else "negligible" if abs(dn) <= 0.001
+                     else "slightly hurt")
+        print(f"  {lbl:<12} ΔNDCG@100={dn:+.4f}  ΔMAP={dm:+.4f}  → {direction}")
+
+    return fig
 
 
 if __name__ == "__main__":
