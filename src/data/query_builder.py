@@ -1,29 +1,12 @@
 """
-src/data/query_builder.py
-
 Converts a BioGen topic dict into a query string for a given field.
-
-Public API:
-    build_query(topic, field) -> str
 """
 
 
 def build_query(topic: dict, field: str) -> str:
     """
     Return a query string from a BioGen topic dict.
-
-    Args:
-        topic: dict with keys 'topic', 'question', 'narrative'.
-        field: one of:
-            'topic'           -> short keyword label (3-8 words)
-            'question'        -> full clinical question (10-20 words)
-            'narrative'       -> extended relevance description (30-60 words)
-            'topic+question'  -> topic + question (no narrative)
-            'topic+narrative' -> topic + narrative (no question)
-            'concatenated'    -> topic + question + narrative (all three)
-
-    Raises:
-        ValueError: if field is not one of the six recognised values.
+    topics is ne of the combinations bellow
     """
     if field == "topic":
         return topic["topic"]

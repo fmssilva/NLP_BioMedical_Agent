@@ -7,7 +7,7 @@ from opensearchpy import OpenSearch
 
 ######################################################################
 ## OpenSearch connection and health utilities.
-## Reads host/port/credentials from .env (python-dotenv).
+## This reads frm credentials in .env (python-dotenv).
 ######################################################################
 
 

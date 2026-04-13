@@ -8,7 +8,7 @@ from src.embeddings.encoder import Encoder, POOLING_MEAN, POOLING_CLS
 
 
 ######################################################################
-## Offline corpus encoder — encode all docs, cache as .npy per model.
+## Corpus encoder 
 ######################################################################
 
 # MedCPT uses an asymmetric dual-encoder design:

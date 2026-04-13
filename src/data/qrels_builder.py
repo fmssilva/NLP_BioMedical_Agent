@@ -122,27 +122,11 @@ def rescale_qrels_graded(
     """
     Linearly rescale graded qrels from the original 0–max_score_orig scale
     to a new 0–max_score_new scale (rounding to nearest integer).
-
-    The project default scale is 0–5 (supporting=5, neutral=2).
-    Use this function only in §3.1.1 to produce 0–2 and 0–7 variants
-    for the scale-sensitivity comparison.
-
-    Example (default base = 0–5):
-        rescale_qrels_graded(qrels, max_score_new=2,  max_score_orig=5)
-        maps  5 → 2,  2 → 1   (0–2 scale — original TREC convention)
-
-        rescale_qrels_graded(qrels, max_score_new=7,  max_score_orig=5)
-        maps  5 → 7,  2 → 3   (0–7 scale — finer-grained)
-
-    Only entries with score >= 1 are kept (same convention as build_qrels_graded).
-
     Args:
         qrels_graded:   {topic_id: {pmid: int_score}}  — standard output of build_qrels_graded.
         max_score_new:  target maximum score (e.g. 2 or 7).
         max_score_orig: current maximum score (default 5, matching the project GRADED_SCORE).
-
-    Returns:
-        New qrels dict with rescaled integer scores.
+    Returns: New qrels dict with rescaled integer scores.
     """
     if max_score_orig <= 0:
         raise ValueError("max_score_orig must be > 0")

@@ -8,18 +8,17 @@ logger = logging.getLogger(__name__)
 
 ######################################################################
 ## Standard IR metrics — P@k, R@k, AP, MAP, MRR, NDCG@k, PR curves.
-## Binary and graded relevance. TREC convention: excludes 0-rel topics
-## from mean metrics. No external IR library — implemented from scratch.
+## Binary and graded relevance. 
 ######################################################################
 
 
 # ---------------------------------------------------------------------------
-# Core single-query metrics (Lab03 lines 86-119, 268-305, 406-428, 180-244)
+# Core single-query metrics 
 # ---------------------------------------------------------------------------
 
 # Fraction of top-k retrieved documents that are relevant.
 def precision_at_k(ranking: list[int], relevance: list[bool], k: int) -> float:
-    """Lab03 pattern: count relevant in top-k, divide by k."""
+    """count relevant in top-k, divide by k."""
     top_k = ranking[:k]
     n_relevant_in_top_k = sum(relevance[doc_id] for doc_id in top_k)
     return n_relevant_in_top_k / k
@@ -27,14 +26,14 @@ def precision_at_k(ranking: list[int], relevance: list[bool], k: int) -> float:
 
 # Fraction of all relevant documents found in top-k.
 def recall_at_k(ranking: list[int], relevance: list[bool], k: int) -> float:
-    """Lab03 pattern: count relevant in top-k, divide by total relevant."""
+    """count relevant in top-k, divide by total relevant."""
     top_k = ranking[:k]
     n_relevant_in_top_k = sum(relevance[doc_id] for doc_id in top_k)
     total_relevant = sum(relevance)
     return n_relevant_in_top_k / total_relevant if total_relevant > 0 else 0.0
 
 
-# Area under the precision-recall curve for a single query (Lab03 lines 268-305).
+# Area under the precision-recall curve for a single query 
 def average_precision(ranking: list[int], relevance: list[bool]) -> float:
     """
     Mean of P@k at each rank where a relevant document appears.
@@ -54,7 +53,7 @@ def average_precision(ranking: list[int], relevance: list[bool]) -> float:
     return score / total_relevant
 
 
-# 1/rank of the first relevant document (Lab03 lines 406-428).
+# 1/rank of the first relevant document 
 def reciprocal_rank(ranking: list[int], relevance: list[bool]) -> float:
     """Returns 1/rank_of_first_relevant_doc, or 0.0 if none found."""
     for rank, doc_id in enumerate(ranking, start=1):
@@ -64,13 +63,13 @@ def reciprocal_rank(ranking: list[int], relevance: list[bool]) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Multi-query aggregates (TREC-standard: exclude 0-relevant-doc topics)
+# Multi-query aggregates 
 # ---------------------------------------------------------------------------
 
 def _filter_zero_relevant(queries: list[tuple]) -> list[tuple]:
     """
-    Remove queries with no relevant documents and log a warning per TREC standard.
-    Lab03 uses np.mean() which includes them (AP=0); we filter for TREC correctness.
+    We remove queries with no relevant documents and log a warning per TREC standard, 
+    instead of doing np.mean() with them, with (AP=0); 
     """
     filtered = []
     n_excluded = 0
@@ -94,9 +93,6 @@ def _filter_zero_relevant(queries: list[tuple]) -> list[tuple]:
 def mean_average_precision(queries: list[tuple]) -> float:
     """
     Mean Average Precision over a list of (relevance_labels, ranking) pairs.
-
-    TREC standard: topics with 0 relevant documents are EXCLUDED from the mean.
-    Lab03 uses np.mean() which includes them — our implementation filters them first.
     """
     valid = _filter_zero_relevant(queries)
     if not valid:
@@ -108,7 +104,7 @@ def mean_average_precision(queries: list[tuple]) -> float:
 def mean_reciprocal_rank(queries: list[tuple]) -> float:
     """
     Mean Reciprocal Rank over a list of (relevance_labels, ranking) pairs.
-    Excludes topics with 0 relevant documents (same TREC standard as MAP).
+    Excludes topics with 0 relevant documents (same as MAP).
     """
     valid = _filter_zero_relevant(queries)
     if not valid:
@@ -117,16 +113,13 @@ def mean_reciprocal_rank(queries: list[tuple]) -> float:
 
 
 # ---------------------------------------------------------------------------
-# PR curves (Lab03 lines 180-244, 438-488)
+# PR curves 
 # ---------------------------------------------------------------------------
 
 # Raw (recall, precision) points at each rank where a relevant doc appears.
 def pr_curve(ranking: list[int], relevance: list[bool]) -> tuple[list[float], list[float]]:
     """
     Compute the PR curve for a single query.
-
-    Returns (recalls, precisions) — parallel lists, one point per relevant doc found.
-    Only records operating points where a relevant doc is seen (standard PR curve).
     """
     total_relevant = sum(relevance)
     precisions, recalls = [], []
@@ -141,7 +134,7 @@ def pr_curve(ranking: list[int], relevance: list[bool]) -> tuple[list[float], li
     return recalls, precisions
 
 
-# 11-point interpolated PR curve (Lab03 lines 200-213).
+# 11-point interpolated PR curve .
 def interpolated_pr_curve(
     recalls: list[float],
     precisions: list[float],
@@ -162,7 +155,7 @@ def interpolated_pr_curve(
     return recall_levels, np.array(interp_precisions)
 
 
-# Mean interpolated PR curve across queries (Lab03 lines 438-488).
+# Mean interpolated PR curve across queries 
 def mean_pr_curve(
     queries: list[tuple],
     n_points: int = 11,
@@ -189,14 +182,12 @@ def mean_pr_curve(
 def ndcg_at_k(ranking: list[int], relevance_scores: list[float], k: int) -> float:
     """
     Normalised Discounted Cumulative Gain at rank k.
-
     Args:
         ranking:          list of doc indices, ordered by retrieval rank (best first).
         relevance_scores: list[float] parallel to all_doc_ids — graded relevance (0=not relevant).
         k:                cutoff rank.
 
-    Returns:
-        NDCG@k in [0, 1]. Returns 0.0 if no relevant docs exist in ground truth.
+    Returns: NDCG@k in [0, 1] -- 0.0 if no relevant docs exist in ground truth.
 
     Formula:
         DCG  = sum( rel[i] / log2(i+2)  for i in 0..k-1 )   (i=0 -> log2(2)=1 discount)
@@ -225,9 +216,6 @@ def ndcg_at_k(ranking: list[int], relevance_scores: list[float], k: int) -> floa
 def mean_ndcg_at_k(queries: list[tuple], k: int) -> float:
     """
     Mean NDCG@k over a list of (relevance_scores, ranking) pairs.
-
-    Uses the same 0-relevant-topic exclusion as MAP/MRR (TREC standard).
-    Queries where sum(relevance_scores) == 0 are skipped and a WARNING is logged.
     """
     valid = []
     n_excluded = 0
@@ -250,7 +238,7 @@ def mean_ndcg_at_k(queries: list[tuple], k: int) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Format conversion (Lab03 lines 756-805)
+# Format conversion 
 # ---------------------------------------------------------------------------
 
 def results_to_ranking(
@@ -271,7 +259,6 @@ def results_to_ranking(
         ranking:    list[int] of indices into all_doc_ids, ordered by retrieval rank.
                     non-retrieved docs are appended at the end (unranked).
 
-    Pattern from Lab03 lines 756-805.
     """
     id_to_idx = {doc_id: i for i, doc_id in enumerate(all_doc_ids)}
 
@@ -291,7 +278,6 @@ def results_to_ranking(
 
 
 # Graded version of results_to_ranking — returns float scores instead of bool labels.
-# Used for NDCG: relevance_scores[i] = graded score (0/1/2) for the doc at position i.
 def results_to_ranking_graded(
     results: list[tuple[str, float]],
     qrels_graded: dict[str, int],
@@ -299,12 +285,10 @@ def results_to_ranking_graded(
 ) -> tuple[list[float], list[int]]:
     """
     Convert OpenSearch results to graded integer-indexed format for nDCG.
-
     Args:
         results:       list of (doc_id, score) from OpenSearch, ranked by score descending.
         qrels_graded:  {doc_id: graded_score} — scores are 0/1/2 (from qrels_graded.json for one topic).
         all_doc_ids:   ordered list of all doc IDs in corpus — defines the index space.
-
     Returns:
         scores:  list[float] parallel to all_doc_ids; 0.0 if not in qrels.
         ranking: list[int] of indices into all_doc_ids, ordered by retrieval rank.
@@ -327,10 +311,9 @@ def results_to_ranking_graded(
     return scores, ranking
 
 
-# ---------------------------------------------------------------------------
-# Self-test: python -m src.evaluation.metrics
-# Reproduces the Lab03 toy example to verify correctness.
-# ---------------------------------------------------------------------------
+############################### LOCAL TSTS ##################################
+## !!!! SET OF TESTES GENERATED WITH AI HELP - COVERS BASIC FUNCTIONALITY AND EDGE CASES FOR BOTH MODULES. 
+## python -m src.evaluation.metrics
 if __name__ == "__main__":
     print("=" * 60)
     print("Step 12 — metrics.py self-test (Lab03 toy example)")

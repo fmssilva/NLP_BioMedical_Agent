@@ -109,21 +109,15 @@ def index_documents(
     # expected_fields = what this call will write into each doc's _source
     expected_fields = {"doc_id"} | set(text_fields) | knn_field_names
 
-    # Idempotency check — two conditions must both hold to skip:
+    # check cnditions to skip: 
     #   (a) doc count in index == len(corpus)
-    #   (b) the first stored doc already has all expected fields
-    #
-    # Count mismatch cases:
-    #   count < corpus  -> partial index or first run -> re-index
-    #   count > corpus  -> common in test mode (CORPUS_SIZE=10 on a full 4194-doc index)
+    #       - count < corpus  -> partial index or first run -> re-index
+    #       - count > corpus  -> common in test mode (CORPUS_SIZE=10 on a full 4194-doc index)
     #                      -> re-index (upsert): only the 10 given docs are updated;
-    #                         the other docs keep their existing data, which is fine for smoke-tests.
-    #                         Set FORCE_REINDEX=True if you need a clean slate.
+    #   (b) the first stored doc already has all expected fields
     count_resp    = client.count(index=index_name)
     current_count = count_resp.get("count", 0)
 
-    # derived from the count comparison — NOT a user flag
-    # True when index has more docs than the given corpus slice (e.g. CORPUS_SIZE=10 smoke-test)
     upsert_partial = current_count > len(corpus)
 
     if current_count == len(corpus):

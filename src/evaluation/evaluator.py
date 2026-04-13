@@ -1,21 +1,3 @@
-"""
-src/evaluation/evaluator.py
-
-Core evaluation utilities:
-  - build_query         (re-exported from src.data.query_builder for backward compat)
-  - evaluate_retriever  — run a live retriever and compute all 5 metrics
-  - metrics_from_run    — recompute metrics from a saved run file (no retriever needed)
-  - save_run / load_run — JSON run-file I/O
-
-Public API:
-    build_query(topic, field)                          -> str
-    evaluate_retriever(retriever, topics, qrels,
-                       qrels_graded, all_doc_ids, ...) -> dict
-    metrics_from_run(run, topics, qrels,
-                     qrels_graded, all_doc_ids)        -> dict
-    save_run(run, path)                                -> None
-    load_run(path)                                     -> dict
-"""
 
 import json
 import logging
@@ -23,8 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-# build_query lives in src.data — re-exported here for backward compatibility
-from src.data.query_builder import build_query  # noqa: F401
+from src.data.query_builder import build_query  
 from src.evaluation.metrics import (
     average_precision,
     mean_average_precision,
@@ -50,8 +31,8 @@ logger = logging.getLogger(__name__)
 def evaluate_retriever(
     retriever,
     topics:       list[dict],
-    qrels:        dict[str, dict],
-    qrels_graded: dict[str, dict],
+    qrels:        dict[str, dict], # binary
+    qrels_graded: dict[str, dict], # graded 
     all_doc_ids:  list[str],
     query_field:  str = "topic+question",
     size:         int = 100,
@@ -61,15 +42,6 @@ def evaluate_retriever(
 
     Primary metric: NDCG@100 (graded qrels: supporting=2, neutral=1).
     Secondary: MAP, MRR, P@10, R@100.
-
-    Args:
-        retriever:    object with .search(query: str, size: int) -> [(pmid, score), ...]
-        topics:       list of topic dicts (each has 'id', 'topic', 'question', 'narrative')
-        qrels:        {topic_id: {pmid: 1}} binary qrels
-        qrels_graded: {topic_id: {pmid: 0/1/2}} graded qrels
-        all_doc_ids:  full corpus doc-ID list (defines ranking universe)
-        query_field:  field used to build the query string
-        size:         number of results to retrieve per query
 
     Returns:
         {
@@ -129,30 +101,22 @@ def evaluate_retriever(
     }
 
 
-# ---------------------------------------------------------------------------
-# Offline metrics — recompute from a saved run file (no live retriever)
-# ---------------------------------------------------------------------------
+
+
+
+
+
+########################## LOCAL TESTS   ####################################
 
 def metrics_from_run(
     run:          dict,
     topics:       list[dict],
-    qrels:        dict[str, dict],
-    qrels_graded: dict[str, dict],
+    qrels:        dict[str, dict], # binary
+    qrels_graded: dict[str, dict], # graded
     all_doc_ids:  list[str],
 ) -> dict:
     """
     Recompute all 5 metrics from a pre-saved run dict.
-
-    Same output shape as evaluate_retriever (minus the 'run' key).
-    Use this when run files are already on disk — no OpenSearch connection needed.
-
-    Args:
-        run:          {topic_id: [[pmid, score], ...]}  (from load_run)
-        topics:       same topic list used during retrieval
-        qrels:        binary qrels
-        qrels_graded: graded qrels
-        all_doc_ids:  full corpus doc-ID list
-
     Returns:
         {"MAP", "MRR", "P@10", "R@100", "NDCG@100", "pr_curves", "per_query"}
     """

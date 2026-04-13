@@ -1,14 +1,5 @@
 """
-src/tuning/tuning_plots.py
-
-Shared plotting helpers for all hyperparameter sweep notebooks.
-Each function takes data, produces a figure, optionally saves to disk, and returns the figure.
-No global state, no side effects beyond the optional save.
-
-Three helpers:
-  - plot_sweep_bar   : bar+errorbar for any 1D parameter sweep (MAP vs one param)
-  - plot_heatmap_2d  : colour heatmap for 2D grid search (BM25 k1 x b)
-  - plot_encoder_bars: grouped bar chart comparing MAP/MRR/P@10 across encoders
+!!!! AI USED FOR PLOT FORMATTING
 """
 
 import matplotlib

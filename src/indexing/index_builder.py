@@ -10,36 +10,23 @@ from src.indexing.opensearch_client import get_client, check_health
 
 ######################################################################
 ## Index schema builder — field definitions and index lifecycle.
-## Field naming: contents_bm25_k{k1}_b{b}, contents_lmjm_{lam},
-##               contents_lmdir_{mu}, embedding_{alias}.
 ######################################################################
 
 
-# ---------------------------------------------------------------------------
-# Default best params — for local CLI test only (python -m src.indexing.index_builder).
-# SOURCE OF TRUTH for these values is the notebook constants cell (§1.2).
-# Do NOT use these in src/ logic — accept params as arguments instead.
-# Updated after Phase 1 CV sweep.
-# ---------------------------------------------------------------------------
-
+# Default best params — for local tests
 _BEST_PARAMS = {
     "bm25_k1_b_pairs": [(1.5, 1.0)],
     "lmjm_lambdas":    [0.7],
-    "lmdir_mus":       [75],
+    "lmdir_mus":       [100],
     "encoders":        [("medcpt", "ncbi/MedCPT-Query-Encoder", 768)],
     #                    ^ (alias, hf_model_id, dim) -- alias -> embedding_{alias} field
 }
 
 
-# ---------------------------------------------------------------------------
-# Index-level settings (hardware / HNSW topology)
-# ---------------------------------------------------------------------------
-
 @dataclass
 class IndexSettings:
     """
     Index-level settings that apply globally to index (not per-field).
-
     KNN params:
       ef_search     — candidates explored per query; higher = better recall, slower.
                       Applies index-wide (OpenSearch quirk: it's a setting, not per-field).
@@ -55,10 +42,7 @@ class IndexSettings:
     hnsw_m:           int = 48
 
 
-# ---------------------------------------------------------------------------
 # Field builders — one function per field family
-# ---------------------------------------------------------------------------
-
 def float_tag(v: float) -> str:
     """Shared helper: 0.7 -> '07', 1.5 -> '15', 2000 -> '2000'. Used by indexing + retrieval."""
     return str(v).replace(".", "")
@@ -258,16 +242,13 @@ def create_or_update_index(
 ) -> None:
     """
     Single entry point for index lifecycle. Creates the index if new, or adds
-    only the missing fields/similarities if it already exists. Fully idempotent.
+    only the missing fields/similarities if it already exists. 
 
     Branch A (new index):  builds full mapping + creates in one shot.
     Branch B (existing):   diffs live fields vs requested, adds only what's missing.
                            Similarity changes need close->put_settings->open (handled here).
                            KNN dim mismatches are warned but not auto-fixed — re-run
                            index_documents to overwrite the stored vectors.
-
-    encoders: list of (alias, hf_model_id, dim) — same constants as in the notebook,
-              e.g. [("msmarco", "sentence-transformers/...", 768)].
     """
     if settings is None:
         settings = IndexSettings()

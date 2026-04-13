@@ -136,9 +136,8 @@ class SweepResult:
             })
         return pd.DataFrame(records)
 
-    # ------------------------------------------------------------------
+
     # Gtters
-    # ------------------------------------------------------------------
     @property
     def best(self) -> dict:
         """return row with highest NDCG@100 (rows already sorted descending)."""
@@ -199,10 +198,7 @@ class SweepResult:
 ######################################################################
 
 
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
-
 def _assert_fields_exist(client, index_name: str, fields: list[str]) -> None:
     """Raise ValueError if any required fields are missing from the live index."""
     live = get_live_fields(client, index_name)
@@ -233,10 +229,7 @@ def _fold_row(cv: dict) -> dict:
 
 
 
-# ---------------------------------------------------------------------------
-# Query field ablation (cheap, single-run on train set)
-# ---------------------------------------------------------------------------
-
+# Query field ablation
 def field_ablation(
     client=None,
     index_name: str = "",
@@ -249,27 +242,6 @@ def field_ablation(
     """
     Run a retriever with 6 query field variants on the train set, pick the one
     with highest NDCG@100.
-
-    Fields tested:
-        'topic'           -- short keyword label (3-8 words)
-        'question'        -- full clinical question (10-20 words)
-        'narrative'       -- extended relevance description (30-60 words)
-        'topic+question'  -- topic + question (no narrative)
-        'topic+narrative' -- topic + narrative (no question)
-        'concatenated'    -- topic + question + narrative (all three)
-
-    Args:
-        client:       OpenSearch client (required when retriever is None)
-        index_name:   OpenSearch index name (required when retriever is None)
-        all_doc_ids:  full corpus doc-ID list
-        train_topics: list of train topic dicts
-        qrels:        binary qrels {topic_id: {pmid: 1}}
-        qrels_graded: graded qrels {topic_id: {pmid: 0/1/2}}
-        retriever:    (optional) a pre-built retriever instance.  When provided,
-                      client and index_name are ignored and this retriever is used
-                      directly for all 6 field variants.  Useful for ablating any
-                      strategy (e.g. RRF best) rather than only BM25 default.
-
     Returns (winner: str, results: dict)
     """
     if retriever is None:
@@ -293,10 +265,8 @@ def field_ablation(
     return winner, results
 
 
-# ---------------------------------------------------------------------------
-# BM25 (k1, b) 2-D grid sweep
-# ---------------------------------------------------------------------------
 
+# BM25 (k1, b) 2-D grid sweep
 def run_bm25_sweep(
     client,
     index_name:   str,
@@ -311,13 +281,7 @@ def run_bm25_sweep(
 ) -> "SweepResult":
     """
     BM25 (k1, b) grid sweep via k-fold CV. Sorted by mean NDCG@100 (primary criterion).
-
-    Args:
-        k1_b_grid:  list of (k1, b) tuples from BM25_K1_B_GRID constant
-        output_csv: if given, save results to this path
-
-    Returns:
-        SweepResult  (kind="bm25", baseline_id=(1.2, 0.75))
+    Returns: SweepResult  (kind="bm25", baseline_id=(1.2, 0.75))
     """
     required = [f"contents_bm25_k{float_tag(k1)}_b{float_tag(b)}" for k1, b in k1_b_grid]
     _assert_fields_exist(client, index_name, required)
@@ -356,10 +320,7 @@ def run_bm25_sweep(
     )
 
 
-# ---------------------------------------------------------------------------
 # LM Jelinek-Mercer lambda sweep
-# ---------------------------------------------------------------------------
-
 def run_lmjm_sweep(
     client,
     index_name:   str,
@@ -374,9 +335,7 @@ def run_lmjm_sweep(
 ) -> "SweepResult":
     """
     LM Jelinek-Mercer lambda sweep via k-fold CV. Sorted by mean NDCG@100.
-
-    Returns:
-        SweepResult  (kind="lmjm", baseline_id=0.7)
+    Returns: SweepResult  (kind="lmjm", baseline_id=0.7)
     """
     required = [f"contents_lmjm_{float_tag(lam)}" for lam in lambdas]
     _assert_fields_exist(client, index_name, required)
@@ -414,10 +373,7 @@ def run_lmjm_sweep(
     )
 
 
-# ---------------------------------------------------------------------------
 # LM Dirichlet mu sweep
-# ---------------------------------------------------------------------------
-
 def run_lmdir_sweep(
     client,
     index_name:   str,
@@ -432,9 +388,7 @@ def run_lmdir_sweep(
 ) -> "SweepResult":
     """
     LM Dirichlet mu sweep via k-fold CV. Sorted by mean NDCG@100.
-
-    Returns:
-        SweepResult  (kind="lmdir", baseline_id=2000)
+    Returns: SweepResult  (kind="lmdir", baseline_id=2000)
     """
     required = [f"contents_lmdir_{mu}" for mu in mus]
     _assert_fields_exist(client, index_name, required)
@@ -472,10 +426,7 @@ def run_lmdir_sweep(
     )
 
 
-# ---------------------------------------------------------------------------
 # Dense encoder comparison (exact cosine, no OpenSearch)
-# ---------------------------------------------------------------------------
-
 def _eval_encoder_exact_cosine(
     doc_embs:     np.ndarray,
     query_embs:   np.ndarray,
@@ -550,16 +501,7 @@ def run_encoder_sweep(
     ``(alias, model_name, doc_embs)``.  Query embeddings are encoded on-the-fly (or loaded
     from ``cache_dir`` if previously saved).
 
-    Args:
-        embeddings_list: list of (alias, model_name, doc_embs) — doc_embs must be L2-normalised
-        query_field:     which topic field to use as query text ("topic"|"question"|"concatenated")
-        cache_dir:       if given, query embeddings are cached/loaded from here
-        force_reencode:  if True, re-encode even when a cache file exists
-        batch_size:      encoding batch size
-        output_csv:      if given, save results
-
-    Returns:
-        SweepResult  (kind="encoder", baseline_id="msmarco")
+    Returns: SweepResult  (kind="encoder", baseline_id="msmarco")
     """
     from src.embeddings.encoder import Encoder
     from src.data.query_builder import build_query
@@ -635,10 +577,7 @@ def run_encoder_sweep(
     )
 
 
-# ---------------------------------------------------------------------------
 # RRF pair grid search
-# ---------------------------------------------------------------------------
-
 def run_rrf_sweep(
     client,
     index_name:   str,
@@ -655,18 +594,6 @@ def run_rrf_sweep(
 ) -> "SweepResult":
     """
     Grid search over RRF model pairs and the RRF smoothing constant k.
-
-    Each element of pair_configs is a dict with keys:
-        label   : str   — human-readable pair name, e.g. "BM25+KNN"
-        factory : callable() → (retriever_a, retriever_b)
-
-    rrf_k_grid controls the k values swept (default: [30, 60, 90]).
-
-    solo_scores (optional): dict mapping model name → {"ndcg", "map", "mrr", "p10"}
-        with the CV NDCG@100 of each retriever run solo.  Stored in SweepResult.meta
-        and used by plot_rrf_sweep() to draw reference lines so you can see whether
-        fusion beats any individual retriever.
-
     Sorted by mean NDCG@100. Returns SweepResult with kind="rrf".
     """
     from src.retrieval.rrf import RRFRetriever

@@ -1,7 +1,7 @@
 """
-src/tuning/__sweeper_test.py
+Tests for cv_utils.py, sweeper.py, and tuning_plots.py.
 
-Comprehensive tests for cv_utils.py, sweeper.py, and tuning_plots.py.
+!!!! SET OF TESTES GENERATED WITH AI HELP - COVERS BASIC FUNCTIONALITY AND EDGE CASES FOR BOTH MODULES. 
 
 Covers:
   1. make_folds()           — split counts, no overlap, reproducible, edge cases

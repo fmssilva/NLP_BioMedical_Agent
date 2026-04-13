@@ -1,6 +1,8 @@
 """
 Local tests for loader.py and splitter.py.
 Run with: python -m src.data.__loader_test
+
+!!!! SET OF TESTES GENERATED WITH AI HELP - COVERS BASIC FUNCTIONALITY AND EDGE CASES FOR BOTH MODULES. 
 """
 
 import json

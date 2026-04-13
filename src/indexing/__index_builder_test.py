@@ -1,7 +1,5 @@
 """
-src/indexing/__index_builder_test.py
-
-Comprehensive tests for the indexing layer using a 10-doc mini-corpus.
+!!!! SET OF TESTES GENERATED WITH AI HELP - COVERS BASIC FUNCTIONALITY AND EDGE CASES FOR BOTH MODULES. 
 
 Test flow:
   1.  Connect to OpenSearch, confirm cluster is healthy.

@@ -1,23 +1,3 @@
-"""
-src/tuning/cv_utils.py
-
-K-fold cross-validation utilities for IR hyperparameter tuning.
-
-The train set has only 32 topics — a single train/val split gives noisy estimates
-because one "hard" topic can swing scores by +-0.02. K-fold CV averages over
-multiple splits for a more robust estimate.
-
-Primary selection criterion: NDCG@100 (graded qrels, supporting=2/neutral=1).
-This is what the project guide explicitly requires as the ranking quality metric.
-MAP is computed and shown alongside but is not the sort key.
-
-Public API:
-    make_folds(topics, n_folds=5)          -> list of (train_fold, val_fold)
-    evaluate_fold(retriever, val_topics, qrels, qrels_graded, all_doc_ids, query_field)
-                                           -> {"NDCG@100": float, "MAP": float, ...}
-    run_cv(retriever_factory, topics, qrels, qrels_graded, all_doc_ids, ...)
-                                           -> {"ndcg_per_fold": [...], "mean_ndcg": float, ...}
-"""
 
 import logging
 import math
@@ -40,10 +20,7 @@ from src.evaluation.metrics import (
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
 # Fold construction
-# ---------------------------------------------------------------------------
-
 def make_folds(topics: list[dict], n_folds: int = 5) -> list[tuple[list[dict], list[dict]]]:
     """Split topics into n_folds (train_fold, val_fold) pairs, sorted by ID for reproducibility."""
     sorted_topics = sorted(topics, key=lambda t: t["id"])
@@ -59,10 +36,7 @@ def make_folds(topics: list[dict], n_folds: int = 5) -> list[tuple[list[dict], l
     return folds
 
 
-# ---------------------------------------------------------------------------
 # Single-fold evaluation
-# ---------------------------------------------------------------------------
-
 def evaluate_fold(
     retriever,
     val_topics:   list[dict],
@@ -84,8 +58,7 @@ def evaluate_fold(
         query_field:  "topic", "question", or "concatenated"
         size:         number of docs to retrieve per query
 
-    Returns:
-        {"NDCG@100": float, "MAP": float, "MRR": float, "P@10": float, "per_query": {...}}
+    Returns:{"NDCG@100": float, "MAP": float, "MRR": float, "P@10": float, "per_query": {...}}
     """
     all_binary = []
     all_graded = []
@@ -123,10 +96,7 @@ def evaluate_fold(
     }
 
 
-# ---------------------------------------------------------------------------
 # Full k-fold CV loop
-# ---------------------------------------------------------------------------
-
 def run_cv(
     retriever_factory,
     topics:       list[dict],
@@ -140,17 +110,6 @@ def run_cv(
 ) -> dict:
     """
     K-fold CV for a retriever. Primary criterion: NDCG@100. MAP also tracked.
-
-    Args:
-        retriever_factory: callable () -> retriever
-        topics:            train topics (32 odd-ID topics)
-        qrels:             binary qrels {topic_id: {pmid: 1}}
-        qrels_graded:      graded qrels {topic_id: {pmid: 0/1/2}}
-        all_doc_ids:       full corpus doc ID list
-        query_field:       query formulation field
-        n_folds:           number of folds
-        size:              results per query
-        verbose:           log fold-by-fold scores
 
     Returns:
         {
@@ -203,9 +162,10 @@ def run_cv(
     }
 
 
-# ---------------------------------------------------------------------------
-# Self-test: python -m src.tuning.cv_utils
-# ---------------------------------------------------------------------------
+######################################################################
+## 
+##                      LOCAL TEST
+## run: python -m src.tuning.cv_utils
 if __name__ == "__main__":
     import json
     import os

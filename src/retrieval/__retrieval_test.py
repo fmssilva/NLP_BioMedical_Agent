@@ -1,7 +1,6 @@
 """
-src/retrieval/__retrieval_test.py
-
-Comprehensive tests for all retrieval strategies.
+Tests for all retrieval strategies.
+!!!! SET OF TESTES GENERATED WITH AI HELP - COVERS BASIC FUNCTIONALITY AND EDGE CASES FOR BOTH MODULES. 
 
 Two categories:
   1. Unit tests  — no OpenSearch needed; mock the client and verify request bodies,

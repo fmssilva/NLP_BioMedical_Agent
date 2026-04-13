@@ -5,21 +5,13 @@ import torch.nn.functional as F
 from transformers import AutoModel, AutoTokenizer
 
 ######################################################################
-## Sentence/batch encoder — pluggable pooling + L2 normalisation.
-## Supports three pooling modes:
-##   "mean"            — mean over ALL tokens (CLS, content, SEP; no PAD)
-##   "mean_no_special" — mean over content tokens only (CLS and SEP excluded)
-##   "cls"             — [CLS] token only (position 0)
-##
-## Singleton cache per (model_name, device, pooling_mode) triple.
+## Class Encoder and Helper Functions for Pooling Strategies
 ######################################################################
 
-# Suppress the harmless "UNEXPECTED key: embeddings.position_ids" warning that
+# Suppress the "UNEXPECTED key: embeddings.position_ids" warning that
 # MPNet checkpoints emit when loaded via AutoModel.  MPNet saves position_ids as
 # a persistent buffer in the checkpoint; the generic AutoModel loader flags it as
-# unexpected, but the buffer is recomputed at runtime and the warning is safe to
-# ignore.  We only silence the specific transformers loading logger to avoid
-# hiding real errors from other modules.
+# unexpected, but the buffer is recomputed at runtime and the warning is safe to ignore.  
 logging.getLogger("transformers.modeling_utils").setLevel(logging.ERROR)
 
 # Default constants for local testing
@@ -32,6 +24,8 @@ POOLING_CLS             = "cls"
 VALID_POOLING_MODES     = {POOLING_MEAN, POOLING_MEAN_NO_SPECIAL, POOLING_CLS}
 
 
+
+############### POOLING STRATEGIES HELPER FUNCTIONS ###############
 def _mean_pooling(model_output, attention_mask: torch.Tensor) -> torch.Tensor:
     """Mean pool over ALL real tokens (CLS + content + SEP), excluding PAD."""
     token_embeddings = model_output.last_hidden_state       # (B, L, H)
@@ -44,8 +38,7 @@ def _mean_pooling(model_output, attention_mask: torch.Tensor) -> torch.Tensor:
 def _mean_pooling_no_special(model_output, attention_mask: torch.Tensor) -> torch.Tensor:
     """
     Mean pool over content tokens only — CLS (position 0) and SEP (last real
-    token per sequence) are excluded.  Falls back to CLS for degenerate
-    sequences that contain only CLS+SEP (length==2).
+    token per sequence) are excluded.  Falls back to CLS for sequences with only CLS+SEP (length==2).
     """
     token_embeddings = model_output.last_hidden_state       # (B, L, H)
     mask = attention_mask.clone().float()                   # (B, L) — don't mutate original
@@ -81,12 +74,7 @@ _encoder_cache: dict[tuple[str, str, str], "Encoder"] = {}
 class Encoder:
     """
     Singleton transformer encoder (one instance per model_name + device + pooling_mode).
-    Call ``Encoder(model_name)`` repeatedly — returns the already-loaded instance.
-
-    pooling_mode options (use the POOLING_* constants):
-        "mean"            (default) — mean over all real tokens incl. CLS/SEP
-        "mean_no_special" — mean over content tokens only (CLS and SEP excluded)
-        "cls"             — CLS token only (MedCPT official approach)
+     - Call ``Encoder(model_name)`` repeatedly — returns the already-loaded instance.
     """
 
     def __new__(
@@ -128,6 +116,7 @@ class Encoder:
         self.model.to(self.device)
         self._initialised = True
         print(f"[encoder] Model loaded. Hidden size: {self.model.config.hidden_size}")
+
 
     def encode(self, texts: list[str], batch_size: int = 32) -> np.ndarray:
         """

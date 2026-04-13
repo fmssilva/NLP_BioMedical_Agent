@@ -1,28 +1,6 @@
 """
-src/evaluation/plots.py
-
 Visualisation functions for Phase 1 retrieval evaluation.
-All plots follow Lab03 style (lines 438-488, 811-855).
-
-Public API:
-    plot_pr_comparison(strategy_curves, title, save_path)              -- mean PR curves, all strategies
-    plot_metric_table(metric_dict, save_path)                          -- MAP/MRR bar chart
-    plot_per_topic_variance(per_topic_ap, save_path)                   -- AP box plot per strategy
-    plot_individual_pr_curves(per_query_curves, ap_scores,             -- 3 highlighted individual PR curves
-                              highlight_ids, title, save_path)
-    plot_ndcg_scale_sensitivity(results, scale_labels, save_path)      -- NDCG across 3 qrel scales (§3.1.1)
-    plot_baseline_vs_tuned(baseline_results, tuned_results, save_path) -- all-metric grouped bar (§4.3)
-    plot_tuning_gain(baseline_results, tuned_results, save_path)       -- Δ NDCG@100 / Δ MAP bars (§4.3)
-
-`strategy_curves` format: {strategy_name: (recall_levels, mean_precisions)}
-`metric_dict`     format: {strategy_name: {"MAP": float, "MRR": float, "P@10": float}}
-`per_topic_ap`    format: {strategy_name: [ap_q1, ap_q2, ...]}
-`per_query_curves` format: {topic_id: (recalls, precisions)}    -- raw (not interpolated) PR points
-`highlight_ids`   format: {"best": topic_id, "worst": topic_id, "extra": topic_id}
-`results`         format: {strategy_name: {scale_label: ndcg_value}}  -- for scale sensitivity plot
-`baseline_results`/ `tuned_results` format: {strategy_name: {"MAP": float, "MRR": float, ...}}
-
-Lab03 reference: Lab03_Retrieval_Evaluation.ipynb lines 438-488, 811-855.
+!!! AI used for better formats, consistent colors, and value labels on bars.
 """
 
 import os

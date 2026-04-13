@@ -56,9 +56,6 @@ class KNNRetriever(BaseRetriever):
         return _extract_hits(resp["hits"]["hits"])
 
 
-# ---------------------------------------------------------------------------
-# MedCPT asymmetric KNN retriever
-# ---------------------------------------------------------------------------
 
 class MedCPTKNNRetriever:
     """
@@ -92,7 +89,6 @@ class MedCPTKNNRetriever:
 
     def encode_query(self, text: str) -> "np.ndarray":
         """Encode a single query; returns (768,) L2-normalised vector.
-
         MedCPT-Query-Encoder uses CLS pooling (last_hidden_state[:, 0, :]) with
         max_length=64, matching the official NCBI usage example.
         """

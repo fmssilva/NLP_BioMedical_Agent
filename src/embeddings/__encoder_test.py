@@ -1,6 +1,8 @@
 """
 Local tests for encoder.py and corpus_encoder.py using CORPUS_SIZE=10.
 
+!!!! SET OF TESTES GENERATED WITH AI HELP - COVERS BASIC FUNCTIONALITY AND EDGE CASES FOR BOTH MODULES. 
+
 Tests:
   encoder.py:
     - Encoder loads, encode() shape (N, 768), L2 norms ~1.0
