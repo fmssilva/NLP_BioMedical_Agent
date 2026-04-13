@@ -25,12 +25,18 @@ Tests:
     - All returned arrays have correct shapes and L2 norms
     - embeddings_map built from results has correct field names for index_documents
 
+  corpus_encoder.py — MedCPT alias override:
+    - create_embeddings with alias='medcpt' uses ncbi/MedCPT-Article-Encoder (not Query-Encoder)
+    - create_embeddings with alias='medcpt' uses POOLING_CLS (not default POOLING_MEAN)
+    - all other aliases still use the model from their tuple + default pooling_mode
+
 Run with: python -m src.embeddings.__encoder_test
 """
 
 import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import patch, MagicMock
 
 import numpy as np
 
@@ -403,6 +409,99 @@ def test_pooling_degenerate_cls_sep_only():
     print(f"  [ok]  pooling=mean_no_special handles empty string (fallback to CLS), norm ~1.0")
 
 
+# ── MedCPT alias override in create_embeddings ───────────────────────────
+# We mock Encoder so the 440MB Article-Encoder is never downloaded.
+# We only care that create_embeddings calls Encoder with the right arguments.
+
+def test_medcpt_alias_uses_article_encoder():
+    """
+    create_embeddings with alias='medcpt' must load ncbi/MedCPT-Article-Encoder,
+    not the Query-Encoder that is stored in the tuple.
+    """
+    MEDCPT_TUPLE = ("medcpt", "ncbi/MedCPT-Query-Encoder", 768)
+    ARTICLE_MODEL = "ncbi/MedCPT-Article-Encoder"
+
+    calls = []
+
+    def fake_encoder(model_name, device=None, pooling_mode="mean"):
+        calls.append((model_name, pooling_mode))
+        enc = MagicMock()
+        # encode() must return a valid (N, 768) float32 array
+        enc.encode.return_value = np.random.rand(CORPUS_SIZE, 768).astype(np.float32)
+        return enc
+
+    with tempfile.TemporaryDirectory() as tmp:
+        with patch("src.embeddings.corpus_encoder.Encoder", side_effect=fake_encoder):
+            create_embeddings(_get_corpus(), [MEDCPT_TUPLE], tmp, batch_size=CORPUS_SIZE)
+
+    assert len(calls) == 1, f"expected 1 Encoder call, got {len(calls)}"
+    model_used, _ = calls[0]
+    assert model_used == ARTICLE_MODEL, (
+        f"MedCPT corpus encoding used '{model_used}' instead of '{ARTICLE_MODEL}'"
+    )
+    print(f"  [ok]  medcpt alias: create_embeddings uses '{ARTICLE_MODEL}' (not Query-Encoder)")
+
+
+def test_medcpt_alias_uses_cls_pooling():
+    """
+    create_embeddings with alias='medcpt' must use CLS pooling, regardless of
+    the pooling_mode argument passed (which defaults to MEAN for all other models).
+    """
+    from src.embeddings.encoder import POOLING_CLS, POOLING_MEAN
+
+    MEDCPT_TUPLE = ("medcpt", "ncbi/MedCPT-Query-Encoder", 768)
+
+    calls = []
+
+    def fake_encoder(model_name, device=None, pooling_mode="mean"):
+        calls.append((model_name, pooling_mode))
+        enc = MagicMock()
+        enc.encode.return_value = np.random.rand(CORPUS_SIZE, 768).astype(np.float32)
+        return enc
+
+    with tempfile.TemporaryDirectory() as tmp:
+        # pass the default POOLING_MEAN explicitly — medcpt should still override to CLS
+        with patch("src.embeddings.corpus_encoder.Encoder", side_effect=fake_encoder):
+            create_embeddings(_get_corpus(), [MEDCPT_TUPLE], tmp,
+                              batch_size=CORPUS_SIZE, pooling_mode=POOLING_MEAN)
+
+    assert len(calls) == 1
+    _, pooling_used = calls[0]
+    assert pooling_used == POOLING_CLS, (
+        f"MedCPT corpus encoding used pooling='{pooling_used}' instead of '{POOLING_CLS}'"
+    )
+    print(f"  [ok]  medcpt alias: create_embeddings overrides pooling_mode to '{POOLING_CLS}'")
+
+
+def test_other_aliases_unaffected_by_medcpt_override():
+    """
+    The medcpt override must NOT affect other models — they keep their own
+    model name and the pooling_mode passed to create_embeddings.
+    """
+    from src.embeddings.encoder import POOLING_MEAN
+
+    NON_MEDCPT = ("msmarco", "sentence-transformers/msmarco-distilbert-base-v2", 768)
+
+    calls = []
+
+    def fake_encoder(model_name, device=None, pooling_mode="mean"):
+        calls.append((model_name, pooling_mode))
+        enc = MagicMock()
+        enc.encode.return_value = np.random.rand(CORPUS_SIZE, 768).astype(np.float32)
+        return enc
+
+    with tempfile.TemporaryDirectory() as tmp:
+        with patch("src.embeddings.corpus_encoder.Encoder", side_effect=fake_encoder):
+            create_embeddings(_get_corpus(), [NON_MEDCPT], tmp,
+                              batch_size=CORPUS_SIZE, pooling_mode=POOLING_MEAN)
+
+    assert len(calls) == 1
+    model_used, pooling_used = calls[0]
+    assert model_used == NON_MEDCPT[1], f"non-medcpt model was changed: {model_used}"
+    assert pooling_used == POOLING_MEAN, f"non-medcpt pooling was changed: {pooling_used}"
+    print(f"  [ok]  non-medcpt alias: model and pooling unchanged by MedCPT override")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -455,6 +554,11 @@ if __name__ == "__main__":
     test_pooling_singleton_separate_per_mode()
     test_pooling_mean_no_special_short_text()
     test_pooling_degenerate_cls_sep_only()
+
+    print("\n-- MedCPT alias override (no model download — mocked) --")
+    test_medcpt_alias_uses_article_encoder()
+    test_medcpt_alias_uses_cls_pooling()
+    test_other_aliases_unaffected_by_medcpt_override()
 
     print("\n" + "=" * 60)
     print("All encoder + corpus_encoder tests passed.")

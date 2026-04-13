@@ -22,6 +22,7 @@ Unit tests cover:
   LMDir : field derived from mu int, invalid mu raises ValueError
   KNN   : embed_field derived from alias, TypeError on bad encoder type,
           request body has correct field name and k==size
+  MedCPTKNNRetriever: CLS pooling (not mean), max_length=64, targets embedding_medcpt field
   rrf_merge: disjoint, overlapping, custom k, score range
   RRFRetriever: sorted, truncated, no duplicates
 
@@ -48,7 +49,7 @@ from src.embeddings.encoder import Encoder
 from src.retrieval.base import BaseRetriever, SparseRetriever, _extract_hits
 from src.indexing.index_builder import float_tag
 from src.retrieval.bm25 import BM25Retriever
-from src.retrieval.knn import KNNRetriever, _embedding_field
+from src.retrieval.knn import KNNRetriever, MedCPTKNNRetriever, _embedding_field
 from src.retrieval.lm_dirichlet import LMDirichletRetriever
 from src.retrieval.lm_jelinek_mercer import LMJMRetriever
 from src.retrieval.rrf import RRFRetriever, rrf_merge
@@ -406,7 +407,149 @@ class TestKNNRetrieverUnit(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# 8. rrf_merge — pure function
+# 8. MedCPTKNNRetriever — unit tests (all mocked, no model download)
+# ---------------------------------------------------------------------------
+
+class TestMedCPTKNNRetrieverUnit(unittest.TestCase):
+    """
+    MedCPTKNNRetriever is a dedicated class for MedCPT asymmetric retrieval.
+    It always uses ncbi/MedCPT-Query-Encoder at query time (CLS pooling,
+    max_length=64) and always targets the embedding_medcpt index field.
+    All tests mock out the transformer model so nothing is downloaded.
+    """
+
+    def _make_retriever_with_mocked_encoder(self):
+        """
+        Return a MedCPTKNNRetriever whose internal model is pre-populated with
+        a mock that returns a fake last_hidden_state tensor.
+        """
+        import torch
+
+        client = MagicMock()
+        client.search.return_value = _make_response(("MC1", 0.97), ("MC2", 0.85))
+
+        r = MedCPTKNNRetriever(client, "idx")
+
+        # inject a fake tokenizer that returns a minimal encoded dict
+        fake_tok = MagicMock()
+        fake_tok.return_value = {
+            "input_ids":      torch.zeros(1, 5, dtype=torch.long),
+            "attention_mask": torch.ones(1, 5, dtype=torch.long),
+        }
+        r._tokenizer = fake_tok
+
+        # inject a fake model whose __call__ returns an object with last_hidden_state
+        hidden = torch.rand(1, 5, 768)   # (batch=1, seq_len=5, hidden=768)
+        fake_out = MagicMock()
+        fake_out.last_hidden_state = hidden
+
+        fake_model = MagicMock()
+        fake_model.return_value = fake_out
+        r._model = fake_model
+        r._device = "cpu"
+
+        return r, client, hidden
+
+    # -- lazy loading --
+
+    def test_model_not_loaded_before_first_encode(self):
+        r = MedCPTKNNRetriever(MagicMock(), "idx")
+        self.assertIsNone(r._model)
+        self.assertIsNone(r._tokenizer)
+
+    # -- CLS pooling + L2 normalisation --
+
+    def test_encode_query_uses_cls_token(self):
+        """encode_query must return the CLS token (position 0), L2-normalised."""
+        import torch
+        import torch.nn.functional as F
+
+        r, _client, hidden = self._make_retriever_with_mocked_encoder()
+        vec = r.encode_query("sleep apnea")
+
+        # expected: F.normalize(hidden[:, 0, :], p=2, dim=1)[0]
+        expected = F.normalize(hidden[:, 0, :], p=2, dim=1)[0].numpy()
+        np.testing.assert_allclose(vec, expected, atol=1e-6,
+            err_msg="encode_query did not return the CLS (position-0) token")
+
+    def test_encode_query_not_mean_pooled(self):
+        """CLS result must differ from mean-pooled result for non-uniform hidden states."""
+        import torch
+        import torch.nn.functional as F
+
+        r, _client, hidden = self._make_retriever_with_mocked_encoder()
+        vec = r.encode_query("q")
+
+        # compute what mean-pooling WOULD give — must differ
+        mask = torch.ones(1, 5).unsqueeze(-1).expand(hidden.size()).float()
+        mean_pooled = F.normalize(
+            torch.sum(hidden * mask, 1) / torch.clamp(mask.sum(1), min=1e-9),
+            p=2, dim=1
+        )[0].numpy()
+
+        self.assertFalse(np.allclose(vec, mean_pooled, atol=1e-4),
+            "encode_query returned mean-pooled result — should be CLS")
+
+    def test_encode_query_output_shape(self):
+        r, _client, _hidden = self._make_retriever_with_mocked_encoder()
+        vec = r.encode_query("test query")
+        self.assertEqual(vec.shape, (768,))
+
+    def test_encode_query_l2_normalised(self):
+        r, _client, _hidden = self._make_retriever_with_mocked_encoder()
+        vec = r.encode_query("test query")
+        norm = float(np.linalg.norm(vec))
+        self.assertAlmostEqual(norm, 1.0, places=5,
+            msg=f"encode_query output not L2-normalised (norm={norm:.6f})")
+
+    # -- tokenizer called with max_length=64 (official MedCPT spec) --
+
+    def test_tokenizer_called_with_max_length_64(self):
+        r, _client, _hidden = self._make_retriever_with_mocked_encoder()
+        r.encode_query("sleep apnea")
+        call_kwargs = r._tokenizer.call_args[1]
+        self.assertEqual(call_kwargs.get("max_length"), 64,
+            "MedCPT-Query-Encoder must tokenize queries with max_length=64")
+
+    def test_tokenizer_called_with_truncation(self):
+        r, _client, _hidden = self._make_retriever_with_mocked_encoder()
+        r.encode_query("q")
+        call_kwargs = r._tokenizer.call_args[1]
+        self.assertTrue(call_kwargs.get("truncation"),
+            "truncation must be True when encoding queries")
+
+    # -- search targets embedding_medcpt field --
+
+    def test_search_targets_embedding_medcpt_field(self):
+        r, client, _hidden = self._make_retriever_with_mocked_encoder()
+        r.search("sleep apnea", size=10)
+        body = client.search.call_args.kwargs.get("body") or client.search.call_args.args[0]
+        self.assertIn("embedding_medcpt", body["query"]["knn"],
+            "MedCPTKNNRetriever.search must query the 'embedding_medcpt' field")
+
+    def test_search_k_equals_size(self):
+        r, client, _hidden = self._make_retriever_with_mocked_encoder()
+        r.search("q", size=50)
+        body = client.search.call_args.kwargs.get("body") or client.search.call_args.args[0]
+        self.assertEqual(body["query"]["knn"]["embedding_medcpt"]["k"], 50)
+        self.assertEqual(body["size"], 50)
+
+    def test_search_returns_results(self):
+        r, _client, _hidden = self._make_retriever_with_mocked_encoder()
+        results = r.search("q", size=10)
+        self.assertEqual(results, [("MC1", 0.97), ("MC2", 0.85)])
+
+    def test_search_vector_is_list_of_floats(self):
+        r, client, _hidden = self._make_retriever_with_mocked_encoder()
+        r.search("q", size=5)
+        body = client.search.call_args.kwargs.get("body") or client.search.call_args.args[0]
+        vec = body["query"]["knn"]["embedding_medcpt"]["vector"]
+        self.assertIsInstance(vec, list)
+        self.assertIsInstance(vec[0], float)
+
+
+# ---------------------------------------------------------------------------
+# 9. rrf_merge — pure function
 # ---------------------------------------------------------------------------
 
 class TestRRFMerge(unittest.TestCase):
@@ -453,7 +596,7 @@ class TestRRFMerge(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# 9. RRFRetriever — any two mocked retrievers
+# 10. RRFRetriever — any two mocked retrievers
 # ---------------------------------------------------------------------------
 
 class TestRRFRetrieverUnit(unittest.TestCase):
@@ -536,7 +679,7 @@ class TestRRFRetrieverUnit(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# 10. build_query — evaluator helper
+# 11. build_query — evaluator helper
 # ---------------------------------------------------------------------------
 
 class TestBuildQuery(unittest.TestCase):
@@ -756,6 +899,7 @@ if __name__ == "__main__":
         TestLMJMRetrieverUnit,
         TestLMDirichletRetrieverUnit,
         TestKNNRetrieverUnit,
+        TestMedCPTKNNRetrieverUnit,
         TestRRFMerge,
         TestRRFRetrieverUnit,
         TestBuildQuery,

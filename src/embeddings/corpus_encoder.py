@@ -4,13 +4,22 @@ import numpy as np
 from tqdm import tqdm
 
 from src.data.loader import load_corpus
-from src.embeddings.encoder import Encoder, POOLING_MEAN
+from src.embeddings.encoder import Encoder, POOLING_MEAN, POOLING_CLS
 
 
 ######################################################################
 ## Offline corpus encoder — encode all docs, cache as .npy per model.
 ######################################################################
 
+# MedCPT uses an asymmetric dual-encoder design:
+#   - ncbi/MedCPT-Article-Encoder  → corpus documents  (CLS pooling, max_length=512)
+#   - ncbi/MedCPT-Query-Encoder    → search queries     (CLS pooling, max_length=64)
+# The ENCODER_MED_CPT tuple in constants still points to the Query-Encoder because
+# that alias is also used at query time (KNNRetriever / MedCPTKNNRetriever).
+# create_embeddings() detects the "medcpt" alias and substitutes the Article-Encoder
+# + CLS pooling for the offline corpus encoding step.
+_MEDCPT_ALIAS          = "medcpt"
+_MEDCPT_ARTICLE_MODEL  = "ncbi/MedCPT-Article-Encoder"
 
 def encode_corpus(encoder: Encoder, corpus: list[dict], batch_size: int = 32) -> np.ndarray:
     """
@@ -89,8 +98,18 @@ def create_embeddings(
 
         if needs_encode:
             reason = "FORCE_REENCODE" if force else "no cache / stale cache"
-            print(f"[corpus_encoder] '{alias}': encoding {len(corpus)} docs with '{model_name}' ({reason})")
-            encoder = Encoder(model_name, pooling_mode=pooling_mode)
+            # MedCPT uses the Article-Encoder for corpus docs (CLS pooling, max_length=512).
+            # All other models use the default pooling_mode passed to create_embeddings().
+            if alias == _MEDCPT_ALIAS:
+                actual_model   = _MEDCPT_ARTICLE_MODEL
+                actual_pooling = POOLING_CLS
+                print(f"[corpus_encoder] '{alias}': overriding model -> '{actual_model}' "
+                      f"(Article-Encoder) with CLS pooling ({reason})")
+            else:
+                actual_model   = model_name
+                actual_pooling = pooling_mode
+                print(f"[corpus_encoder] '{alias}': encoding {len(corpus)} docs with '{actual_model}' ({reason})")
+            encoder = Encoder(actual_model, pooling_mode=actual_pooling)
             vectors = encode_corpus(encoder, corpus, batch_size=batch_size)
             save_embeddings(vectors, npy_path)
 

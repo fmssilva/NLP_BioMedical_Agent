@@ -91,22 +91,25 @@ class MedCPTKNNRetriever:
         self._model.to(self._device)
 
     def encode_query(self, text: str) -> "np.ndarray":
-        """Encode a single query; returns (768,) L2-normalised vector."""
+        """Encode a single query; returns (768,) L2-normalised vector.
+
+        MedCPT-Query-Encoder uses CLS pooling (last_hidden_state[:, 0, :]) with
+        max_length=64, matching the official NCBI usage example.
+        """
         import torch
         import torch.nn.functional as F
 
         self._ensure_encoder()
         enc = self._tokenizer(
             [text], padding=True, truncation=True,
-            max_length=512, return_tensors="pt",
+            max_length=64, return_tensors="pt",
         )
         enc = {k: v.to(self._device) for k, v in enc.items()}
         with torch.no_grad():
             out = self._model(**enc, return_dict=True)
-        token_emb = out.last_hidden_state
-        mask = enc["attention_mask"].unsqueeze(-1).expand(token_emb.size()).float()
-        pooled = torch.sum(token_emb * mask, 1) / torch.clamp(mask.sum(1), min=1e-9)
-        normed = F.normalize(pooled, p=2, dim=1)
+        # CLS token — official MedCPT pooling strategy
+        cls_vec = out.last_hidden_state[:, 0, :]
+        normed = F.normalize(cls_vec, p=2, dim=1)
         return normed[0].cpu().numpy()
 
     def search(self, query: str, size: int = 100) -> list[tuple[str, float]]:
