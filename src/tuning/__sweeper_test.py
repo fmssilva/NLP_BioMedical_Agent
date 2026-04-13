@@ -24,6 +24,7 @@ Usage:
     C:/Users/franc/anaconda3/envs/cnn/python.exe -m src.tuning.__sweeper_test
 """
 
+import io
 import json
 import logging
 import os
@@ -388,6 +389,43 @@ def test_sweep_result_unit():
     )
     _assert(r5.baseline() is None, "baseline() returns None when id not in rows")
 
+    # ── 3f. lmjm regression: lambda=0.65 wins, best["lambda"] must be 0.65 ─
+    # This catches the :.1f formatting bug: f"{0.65:.1f}" prints "0.7", which
+    # previously made the notebook output look like lambda=0.7 had won when
+    # the actual winner was lambda=0.65.
+    rows_065 = [
+        # lambda=0.65 is strictly best — must be rows[0] after descending sort
+        {"lambda": 0.65, "mean_ndcg": 0.7775, "std_ndcg": 0.058, "mean_map": 0.5636,
+         "std_map": 0.03, "mean_mrr": 0.8664, "mean_p10": 0.70},
+        {"lambda": 0.70, "mean_ndcg": 0.7769, "std_ndcg": 0.056, "mean_map": 0.5634,
+         "std_map": 0.03, "mean_mrr": 0.8807, "mean_p10": 0.70},
+        {"lambda": 0.75, "mean_ndcg": 0.7772, "std_ndcg": 0.054, "mean_map": 0.5634,
+         "std_map": 0.03, "mean_mrr": 0.8821, "mean_p10": 0.70},
+    ]
+    rows_065.sort(key=lambda r: r["mean_ndcg"], reverse=True)
+    r_lmjm_065 = SweepResult(rows=rows_065, param_col="lambda", kind="lmjm",
+                              baseline_id=0.7, meta={})
+
+    best_lam = r_lmjm_065.best["lambda"]
+    _assert(abs(best_lam - 0.65) < 1e-9,
+            f"regression: best lambda == 0.65 (got {best_lam}) -- rows[0] must be the sort winner")
+
+    # confirm :.2f prints correctly (was :.1f which rounded 0.65 -> '0.7')
+    fmt_1f = f"{best_lam:.1f}"
+    fmt_2f = f"{best_lam:.2f}"
+    _assert(fmt_1f == "0.7",
+            f"regression: :.1f rounds 0.65 -> '0.7' (confirms the bug, got '{fmt_1f}') -- "
+            "this is why the notebook printed 'Locked: LMJM_LAMBDA_BEST = 0.7' even though best was 0.65")
+    _assert(fmt_2f == "0.65",
+            f"regression: :.2f always gives '0.65' (got '{fmt_2f}')")
+
+    # confirm sweeper.py print uses :.4f now (verified by reading the source)
+    import inspect
+    from src.tuning import sweeper as _sw_mod
+    src = inspect.getsource(_sw_mod.run_lmjm_sweep)
+    _assert(":.4f" in src and ":.1f" not in src,
+            "sweeper.run_lmjm_sweep uses :.4f (not :.1f) for lambda in the Best print")
+
 
 # ---------------------------------------------------------------------------
 # 4. Plot smoke tests (offline, matplotlib backend = Agg)
@@ -638,7 +676,7 @@ def test_encoder_sweep_offline():
 def test_field_ablation(client, test_index: str, train_topics, qrels, qrels_graded, all_doc_ids):
     _section("9. field_ablation() — real index, BM25 over 3 query fields")
 
-    winner = field_ablation(
+    winner, _results = field_ablation(
         client       = client,
         index_name   = test_index,
         all_doc_ids  = all_doc_ids,
@@ -647,8 +685,10 @@ def test_field_ablation(client, test_index: str, train_topics, qrels, qrels_grad
         qrels_graded = qrels_graded,
     )
 
-    _assert(winner in ("topic", "question", "concatenated"),
-            f"winner is one of the 3 valid fields (got '{winner}')")
+    valid_fields = ("topic", "question", "narrative",
+                    "topic+question", "topic+narrative", "concatenated")
+    _assert(winner in valid_fields,
+            f"winner is one of the 6 valid fields (got '{winner}')")
     print(f"  [info] winning field: '{winner}'")
 
 
@@ -657,6 +697,12 @@ def test_field_ablation(client, test_index: str, train_topics, qrels, qrels_grad
 # ---------------------------------------------------------------------------
 
 def main():
+    # Ensure Unicode characters (μ, λ, Δ, etc.) print cleanly on Windows consoles.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
     print("\n" + "=" * 60)
     print("  src/tuning/__sweeper_test.py")
     print("=" * 60)

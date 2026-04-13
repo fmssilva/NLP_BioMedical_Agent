@@ -7,15 +7,12 @@ from src.data.loader import load_corpus
 
 ######################################################################
 ## Qrels builder — parse biogen_2024_submissions.json into graded
-## and binary relevance judgements (TREC qrels format).
+## and binary relevance judgements.
 ######################################################################
 
 
 # Default graded relevance mapping — 0–5 scale (project default).
 # supporting=5, neutral=2 gives better NDCG separation than 0–2:
-#   DCG gain(5) = 2^5 − 1 = 31  vs  gain(2) = 2^2 − 1 = 3  →  supporting docs
-#   count ~10× more than neutral, which better reflects their importance.
-# §3.1.1 confirms rankings are stable across 0–2 / 0–5 / 0–7 scales.
 _DEFAULT_GRADED_SCORE = {
     "supporting":       5,  # strong evidence — full relevance
     "neutral":          2,  # mentioned but not clearly supporting — partial relevance

@@ -378,7 +378,7 @@ def run_lmjm_sweep(
 
     results.sort(key=lambda r: r["mean_ndcg"], reverse=True)
     best = results[0]
-    print(f"  >> Best: lambda={best['lambda']:.1f}  "
+    print(f"  >> Best: lambda={best['lambda']:.4f}  "
           f"NDCG@100={best['mean_ndcg']:.4f}  MAP={best['mean_map']:.4f}")
 
     if output_csv:
