@@ -238,15 +238,17 @@ def _fold_row(cv: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 def field_ablation(
-    client,
-    index_name: str,
-    all_doc_ids: list[str],
-    train_topics: list[dict],
-    qrels: dict[str, dict],
-    qrels_graded: dict[str, dict],
+    client=None,
+    index_name: str = "",
+    all_doc_ids: list[str] = None,
+    train_topics: list[dict] = None,
+    qrels: dict[str, dict] = None,
+    qrels_graded: dict[str, dict] = None,
+    retriever=None,
 ) -> str:
     """
-    Run BM25 with 6 query field variants on the train set, pick the one with highest NDCG@100.
+    Run a retriever with 6 query field variants on the train set, pick the one
+    with highest NDCG@100.
 
     Fields tested:
         'topic'           -- short keyword label (3-8 words)
@@ -256,9 +258,28 @@ def field_ablation(
         'topic+narrative' -- topic + narrative (no question)
         'concatenated'    -- topic + question + narrative (all three)
 
+    Args:
+        client:       OpenSearch client (required when retriever is None)
+        index_name:   OpenSearch index name (required when retriever is None)
+        all_doc_ids:  full corpus doc-ID list
+        train_topics: list of train topic dicts
+        qrels:        binary qrels {topic_id: {pmid: 1}}
+        qrels_graded: graded qrels {topic_id: {pmid: 0/1/2}}
+        retriever:    (optional) a pre-built retriever instance.  When provided,
+                      client and index_name are ignored and this retriever is used
+                      directly for all 6 field variants.  Useful for ablating any
+                      strategy (e.g. RRF best) rather than only BM25 default.
+
     Returns (winner: str, results: dict)
     """
-    retriever = BM25Retriever(client, index_name)
+    if retriever is None:
+        if client is None or not index_name:
+            raise ValueError(
+                "field_ablation: either supply a pre-built retriever instance, "
+                "or both `client` and `index_name`."
+            )
+        retriever = BM25Retriever(client, index_name)
+
     fields = ["topic", "question", "narrative", "topic+question", "topic+narrative", "concatenated"]
     results = {}
 

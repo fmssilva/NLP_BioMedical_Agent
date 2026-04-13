@@ -17,12 +17,15 @@
   \item \textbf{Disciplined tuning protocol}: query field ablation first,
         then 5-fold CV per strategy — test set touched exactly once.
   \item \textbf{MedCPT encoder} identified as the most impactful single
-        change ($\Delta$NDCG@100=+0.0506 vs msmarco baseline on test set).
-  \item \textbf{Best result:} RRF (BM25 tuned + MedCPT KNN)
-        — NDCG@100=\textbf{0.8259}, MAP=0.6262, R@100=0.9143 on 33 test topics.
+        change ($\Delta$NDCG@100=+0.0501, 0.7576$\to$0.8077 vs msmarco
+        baseline on the test set; +0.0825 on 5-fold CV).
+  \item \textbf{Phase~2 locked strategy:} KNN(MedCPT)
+        — NDCG@100=\textbf{0.8077}, MAP=0.6143, R@100=0.8933 on 33 test
+        topics (CV winner); RRF (BM25+MedCPT KNN, $k$=60) reaches
+        NDCG@100=0.8245 on the same test set.
   \item \textbf{Post-hoc analyses} completed: per-topic AP distribution,
         Jaccard overlap, IDF error analysis, statistical significance tests.
-  \item High Recall@100 (0.9143) ensures a strong evidence pool is available
+  \item High Recall@100 (0.8933) ensures a strong evidence pool is available
         for Phase~2 generation.
 \end{itemize}
 
@@ -45,7 +48,7 @@
   \item \textbf{CPU-only dense encoding:} MedCPT encoding ran on CPU in
         Colab free tier; GPU would reduce encoding time significantly.
   \item \textbf{BM25 tuning negligible} ($k_1$=1.5, $b$=1.0): tuned
-        parameters did not generalise to test — only $\Delta$NDCG@100=$-$0.0009
+        parameters did not generalise to test — only $\Delta$NDCG@100=$-$0.0014
         on the unseen queries.
 \end{itemize}
 

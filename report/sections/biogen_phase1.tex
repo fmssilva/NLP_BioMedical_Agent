@@ -36,11 +36,11 @@
         \texttt{topic}-only, \texttt{question}-only, and
         \texttt{topic+question} concatenation.
     \begin{itemize}
-      \item[--] \texttt{question} and \texttt{topic+question} are top performers
-                (NDCG@100 difference $< 0.01$); \texttt{topic+question} locked as
-                the final field.
-      \item[--] \texttt{narrative} alone is weakest (NDCG@100 = 0.6111 vs
-                0.7850 for \texttt{topic+question}).
+      \item[--] \texttt{question} and \texttt{topic+question} are top performers;
+                \texttt{topic+question} locked as the final field
+                (NDCG@100=0.7833 vs 0.7174 for \texttt{question}).
+      \item[--] \texttt{narrative} alone is weakest (NDCG@100 = 0.6099 vs
+                0.7833 for \texttt{topic+question}).
     \end{itemize}
 \end{itemize}
 
@@ -84,9 +84,9 @@
 
   \item \textbf{Graded qrels} (for NDCG@100):
     \begin{itemize}
-      \item[--] Rule: supporting$\to$2, neutral$\to$1, all others$\to$0.
+      \item[--] Rule: supporting$\to$5, neutral$\to$2, all others$\to$0.
                 Per (topic, PMID) pair: take the maximum score across all citations.
-      \item[--] Score distribution: 2{,}999 pairs at score=2; 218 pairs at score=1.
+      \item[--] Score distribution: 2{,}999 pairs at score=5; 218 pairs at score=2.
       \item[--] Total graded pairs: 3{,}217; mean relevant docs/topic = 49.5.
     \end{itemize}
 
@@ -151,14 +151,14 @@
         PubMed search click-through pairs.
     \begin{itemize}
       \item[--] Exact domain match: PubMed query $\to$ abstract, same as our task.
-      \item[--] Train MAP improvement: $+$0.183 over msmarco ($+$42.8\% relative).
-      \item[--] Test NDCG@100 improvement: $+$0.0506 (0.7589$\to$0.8095).
+      \item[--] Train CV NDCG@100: $+$0.0837 over msmarco (0.7448$\to$0.8273).
+      \item[--] Test NDCG@100 improvement: $+$0.0501 (0.7576$\to$0.8077).
       \item[--] New index field \texttt{embedding\_medcpt} (768-dim) added without
                 rebuilding the base index.
     \end{itemize}
-  \item \textbf{multi-qa-mpnet-base-cos-v1} also evaluated: NDCG@100=0.8242
-        vs MedCPT=0.8296 (gap of 0.0054). multi-qa wins MAP (0.6435) and P@10
-        (0.7719) but loses NDCG@100 — MedCPT locked as primary encoder.
+  \item \textbf{multi-qa-mpnet-base-cos-v1} also evaluated: train CV NDCG@100=0.8236
+        vs MedCPT=0.8273 (gap of 0.0037). multi-qa wins MAP (0.6435) and P@10
+        (0.7719) on train but loses NDCG@100 — MedCPT locked as primary encoder.
 \end{itemize}
 
 % ── 2a.7  RETRIEVAL STRATEGIES ────────────────────────────────────────────────
@@ -187,13 +187,13 @@
                 $\lambda$=0.65 locked (extended grid winner).
     \end{itemize}
 
-  \item \textbf{LM Dirichlet} — \texttt{match} on \texttt{contents\_lmdir\_75}
-        ($\mu$=75 from sweep; baseline used $\mu$=2{,}000).
+  \item \textbf{LM Dirichlet} — \texttt{match} on \texttt{contents\_lmdir\_100}
+        ($\mu$=100, CV winner; baseline used $\mu$=2{,}000).
     \begin{itemize}
       \item[--] Default $\mu$=2{,}000 $\approx$13$\times$ mean doc length
                 (150~words) — over-smooths every abstract.
-      \item[--] $\mu$=100 is the CV winner (NDCG@100=0.7723); $\mu$=75 used
-                in run files ($\Delta$=0.0013, within noise).
+      \item[--] $\mu$=100 is the CV winner (NDCG@100=0.7706); $\Delta$=+0.0196
+                vs default $\mu$=2000 (0.7510).
       \item[--] Sweep: NDCG@100 peaks at $\mu$=100, monotone decrease toward
                 $\mu$=2{,}000.
     \end{itemize}
@@ -208,16 +208,17 @@
     \end{itemize}
 
   \item \textbf{RRF Fusion}~\cite{rrf2009} — Reciprocal Rank Fusion of BM25 + KNN (MedCPT),
-        $k$=60 (Cormack default).
+        $k$=60 (Cormack default; locked for Phase~2 backbone).
     \begin{itemize}
       \item[--] Score: $\text{RRF}(d) = \sum_r \frac{1}{k + \text{rank}_r(d)}$.
       \item[--] BM25 and KNN(MedCPT) Jaccard overlap at top-10: 0.13--0.16 —
                 very low, confirming complementary signals.
-      \item[--] RRF pair sweep (5-fold CV) best lexical pair: BM25+LM-Dir $k$=90
-                (NDCG@100=0.7926); no pair beats KNN(MedCPT) solo (0.8296).
-      \item[--] Test-set run uses BM25+MedCPT KNN because rank-level RRF
-                degrades the KNN signal for KNN+lexical pairs (list-size
-                mismatch in HNSW); native score-level hybrid planned for Phase~2.
+      \item[--] RRF pair sweep (5-fold CV): best lexical pair was BM25+LM-Dir
+                $k$=90 (NDCG@100=0.7907); no RRF pair beats KNN(MedCPT)
+                solo (0.8273) on the train CV leaderboard.
+      \item[--] Test-set RRF (BM25+MedCPT, $k$=60) achieves NDCG@100=0.8245 — the
+                highest test-set score overall, with strong R@100=0.8924. Best
+                solo model is KNN(MedCPT) with NDCG@100=0.8077.
     \end{itemize}
 \end{itemize}
 

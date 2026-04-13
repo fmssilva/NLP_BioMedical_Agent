@@ -9,7 +9,7 @@
 \subsubsection{Query Field Ablation (BM25, Train Set)}
 \begin{itemize}
   \item Tested on 32 train queries; BM25 default parameters as proxy retriever.
-  \item \textbf{Winner: \texttt{topic+question}} — NDCG@100=0.7850.
+  \item \textbf{Winner: \texttt{topic+question}} — NDCG@100=0.7833.
   \item \texttt{narrative} adds noise (instructions, qualifiers not in
         abstracts); \texttt{topic} alone misses clinical context synonyms.
 \end{itemize}
@@ -24,12 +24,12 @@
   \textbf{Field} & \textbf{MAP} & \textbf{MRR} & \textbf{P@10}
                  & \textbf{NDCG@100} \\
   \hline
-  topic only       & 0.5412 & 0.7694 & 0.5938 & 0.7696 \\
-  question only    & 0.5586 & 0.8016 & 0.6250 & 0.7770 \\
-  narrative only   & 0.5290 & 0.7660 & 0.6063 & 0.7630 \\
-  \textbf{topic+question}   & \textbf{0.5686} & 0.8073 & \textbf{0.6344} & \textbf{0.7850} \\
-  topic+narrative  & 0.5502 & 0.7942 & 0.6156 & 0.7721 \\
-  all three        & 0.5537 & \textbf{0.8091} & 0.6281 & 0.7740 \\
+  topic only       & 0.5334 & 0.8255 & 0.6313 & 0.7381 \\
+  question only    & 0.4988 & 0.8135 & 0.6562 & 0.7174 \\
+  narrative only   & 0.3900 & 0.6890 & 0.5500 & 0.6099 \\
+  \textbf{topic+question}   & \textbf{0.5843} & 0.8229 & \textbf{0.7000} & \textbf{0.7833} \\
+  topic+narrative  & 0.5145 & 0.7083 & 0.6500 & 0.7205 \\
+  all three        & 0.5673 & \textbf{0.7240} & 0.7031 & 0.7611 \\
   \hline
 \end{tabular}
 \end{table}
@@ -50,21 +50,22 @@
   \item All sweeps use \texttt{topic+question} locked from §\ref{sec:eval_setup}.
 
   \item \textbf{BM25} ($k_1 \times b$ grid, 24 configs): winner $k_1$=1.5,
-        $b$=1.0 — NDCG@100=\textbf{0.8011} ($\Delta$=+0.0092 vs default).
+        $b$=1.0 — NDCG@100=\textbf{0.7989} ($\Delta$=+0.0088 vs default
+        $k_1$=1.2, $b$=0.75 at 0.7901).
         High $b$=1.0: longer, more comprehensive abstracts rewarded rather than
         penalised.
 
   \item \textbf{LM-JM} ($\lambda \in \{0.1,0.3,0.5,0.65,0.7,0.75,0.9\}$, extended grid): winner
-        $\lambda$=0.65 — NDCG@100=0.7779 ($\lambda$=0.7 was the original grid winner at 0.7769;
-        extended grid confirmed 0.65 edges ahead by $\Delta$=0.001, within noise).
+        $\lambda$=0.65 — NDCG@100=0.7754 ($\lambda$=0.7 at 0.7746;
+        extended grid confirms 0.65 edges ahead by $\Delta$=+0.0008, within noise).
 
-  \item \textbf{LM-Dir} ($\mu \in \{50,75,100,200,500,1000,2000\}$): CV winner
-        $\mu$=100 — NDCG@100=0.7723 ($\Delta$=+0.0201 vs default $\mu$=2000).
-        Default over-smooths 150-word abstracts.
+  \item \textbf{LM-Dir} ($\mu \in \{50,75,100,125,200,500,1000,2000\}$): CV winner
+        $\mu$=100 — NDCG@100=0.7706 ($\Delta$=+0.0196 vs default $\mu$=2000
+        at 0.7510). Default over-smooths 150-word abstracts.
 
-  \item \textbf{Dense encoder}: MedCPT wins over multi-qa-mpnet and
-        msmarco-distilbert — NDCG@100=\textbf{0.8296}
-        ($\Delta$=+0.0837 vs msmarco baseline). Trained on 23M PubMed
+  \item \textbf{Dense encoder}: MedCPT wins over multi-qa-mpnet, specter2, and
+        msmarco-distilbert — NDCG@100=\textbf{0.8273}
+        ($\Delta$=+0.0825 vs msmarco baseline at 0.7448). Trained on 23M PubMed
         click-through pairs — exact domain match.
 \end{itemize}
 
@@ -73,8 +74,8 @@
   \includegraphics[width=\linewidth]{images/tuning_summary.png}
   \caption{Tuning summary: baseline vs.\ tuned NDCG@100 for every model
            (5-fold CV on 32 train topics). Encoder selection (MedCPT) yields
-           the largest gain ($\Delta$NDCG@100=+0.0837); LM-Dir correction
-           ($\mu$=100) yields the second-largest (+0.0201).}
+           the largest gain ($\Delta$NDCG@100=+0.0825 over msmarco); LM-Dir
+           correction ($\mu$=100) yields the second-largest (+0.0196).}
   \label{fig:tuning_summary}
 \end{figure}
 
@@ -117,10 +118,10 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=0.85\linewidth]{images/rrf_pair_sweep.png}
-  \caption{RRF pair sweep — 8 strategy pairs × 3 $k$ values, 5-fold CV.
-           Lexical pairs (BM25+LM-Dir) outperform KNN fusions at the
-           rank-level; native hybrid fusion (Phase~2) is the recommended
-           approach for BM25+KNN.}
+  \caption{RRF pair sweep — 9 strategy pairs × 3 $k$ values, 5-fold CV.
+           Lexical pairs (BM25+LM-Dir, $k$=90, NDCG@100=0.7907) outperform
+           KNN fusions at the rank-level; native hybrid fusion (Phase~2) is
+           the recommended approach for BM25+KNN.}
   \label{fig:rrf_sweep}
 \end{figure}
 
@@ -143,23 +144,24 @@
                     & \textbf{R@100} & \textbf{NDCG@100} \\
   \hline
   \multicolumn{6}{l}{\textit{Baseline (default parameters)}} \\
-  BM25 ($k_1$=1.2, $b$=0.75)   & 0.5695 & 0.7864 & 0.6333 & 0.8511 & 0.7788 \\
-  LM-JM ($\lambda$=0.7)         & 0.5427 & 0.7838 & 0.6333 & 0.8327 & 0.7609 \\
-  LM-Dir ($\mu$=2000)           & 0.5232 & 0.7590 & 0.6061 & 0.8063 & 0.7375 \\
-  KNN (msmarco)                 & 0.5561 & \textbf{0.8384} & 0.6879 & 0.8137 & 0.7589 \\
-  RRF (default)                 & 0.6105 & 0.8157 & 0.6667 & 0.8934 & 0.8135 \\
+  BM25 ($k_1$=1.2, $b$=0.75)   & 0.5695 & 0.7712 & 0.6333 & -- & 0.7756 \\
+  LM-JM ($\lambda$=0.7)         & 0.5431 & 0.7848 & 0.6333 & -- & 0.7586 \\
+  LM-Dir ($\mu$=2000)           & 0.5149 & 0.7740 & 0.6212 & -- & 0.7341 \\
+  KNN (msmarco)                 & 0.5561 & \textbf{0.8384} & 0.6879 & -- & 0.7576 \\
+  RRF (default)                 & 0.6100 & 0.8141 & 0.6667 & -- & 0.8114 \\
   \hline
   \multicolumn{6}{l}{\textit{Tuned (locked §\ref{sec:eval_setup} parameters)}} \\
-  BM25 ($k_1$=1.5, $b$=1.0)    & 0.5680 & 0.7283 & 0.6364 & 0.8602 & 0.7779 \\
-  LM-JM ($\lambda$=0.65)\textsuperscript{$\dagger$} & 0.5427 & 0.7838 & 0.6333 & 0.8327 & 0.7609 \\
-  LM-Dir ($\mu$=75)             & 0.5436 & 0.7737 & 0.6212 & 0.8265 & 0.7578 \\
-  KNN (MedCPT)                  & 0.6143 & 0.8000 & 0.6788 & 0.8933 & 0.8095 \\
-  \textbf{RRF (tuned)}          & \textbf{0.6262} & 0.8369
-                                & 0.6455 & \textbf{0.9143} & \textbf{0.8259} \\
+  BM25 ($k_1$=1.5, $b$=1.0)    & 0.5677 & 0.7141 & 0.6333 & -- & 0.7742 \\
+  LM-JM ($\lambda$=0.65)        & 0.5413 & 0.7864 & 0.6212 & -- & 0.7569 \\
+  LM-Dir ($\mu$=100)            & 0.5428 & 0.7773 & 0.6061 & -- & 0.7555 \\
+  \textbf{KNN (MedCPT)}         & 0.6143 & 0.8000 & 0.6788 & \textbf{0.8933} & 0.8077 \\
+  \textbf{RRF (BM25+MedCPT)}   & \textbf{0.6266} & 0.8394
+                                & 0.6515 & 0.8924 & \textbf{0.8245} \\
   \hline
 \end{tabular}
-\smallskip\par\noindent\small$\dagger$~Run file uses $\lambda$=0.7 (pre-extension index field);
-extended grid winner $\lambda$=0.65 yields NDCG@100=0.7779 ($\Delta$=+0.001, within noise).
+\smallskip\par\noindent\small
+KNN(MedCPT) is the \emph{train CV winner} (NDCG@100=0.8273).
+RRF (BM25+MedCPT, $k$=60) achieves the highest \emph{test-set} NDCG@100=0.8245.
 \end{table}
 
 \begin{figure}[htbp]
@@ -183,14 +185,19 @@ extended grid winner $\lambda$=0.65 yields NDCG@100=0.7779 ($\Delta$=+0.001, wit
 \begin{itemize}
   \item \textbf{Key observations:}
     \begin{itemize}
-      \item[--] \textbf{RRF wins on all major metrics} — fusion of lexical
-                and dense signals is complementary (Jaccard BM25$\cap$KNN
-                $\approx$0.13--0.16).
+      \item[--] \textbf{KNN(MedCPT) wins on train CV} (NDCG@100=0.8273) and on
+                test achieves NDCG@100=0.8077, MAP=0.6143, R@100=0.8933 — locked
+                as the Phase~2 backbone.
+      \item[--] \textbf{RRF (BM25+MedCPT, $k$=60) achieves the highest test
+                NDCG@100=0.8245} — fusion of lexical and dense signals is
+                complementary (Jaccard BM25$\cap$KNN $\approx$0.13--0.16).
       \item[--] \textbf{MedCPT} is the single most impactful change:
-                $\Delta$NDCG@100=+0.0506 vs msmarco KNN on test.
-      \item[--] \textbf{BM25 tuning effect is negligible} on test
-                (NDCG@100 $\Delta$=$-$0.0009).
-      \item[--] R@100=0.9143 for RRF — covers $>$91\% of relevant docs,
+                $\Delta$NDCG@100=+0.0501 vs msmarco KNN on test (0.7576$\to$0.8077).
+      \item[--] \textbf{BM25 tuning has minimal effect} on test
+                (NDCG@100 $\Delta$=$-$0.0014 — tuning slightly hurt generalisation).
+      \item[--] \textbf{LM-Dir tuning improves} significantly: $\mu$=100 vs
+                $\mu$=2000 gives NDCG@100 0.7341$\to$0.7555 (+0.0214 on test).
+      \item[--] R@100=0.8933 for KNN(MedCPT) — covers $>$89\% of relevant docs,
                 providing a strong evidence pool for Phase~2 generation.
     \end{itemize}
 \end{itemize}
@@ -227,10 +234,12 @@ extended grid winner $\lambda$=0.65 yields NDCG@100=0.7779 ($\Delta$=+0.001, wit
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=0.82\linewidth]{images/individual_pr_curves.png}
-  \caption{Per-topic PR curves for RRF (tuned) on all 33 test topics.
-           Green = best topic (170, AP=0.9289); red = worst topic (156,
-           AP=0.1862); orange = median topic (138, AP=0.6572). Gray curves =
-           remaining 30 topics. Dashed navy = mean AP (MAP=0.6262).
+  \caption{Per-topic PR curves for KNN(MedCPT) on all 33 test topics.
+           Green = best topic (170 — isoniazid hepatotoxicity, AP=0.8961);
+           red = worst topic (140 — spontaneous hand fractures, AP=0.1168);
+           orange = median topic (120 — causes of facial numbness, AP=0.6277).
+           Gray curves = remaining 30 topics.
+           Dashed navy = mean AP (MAP=0.6143).
            Wide spread indicates high sensitivity to topic vocabulary.}
   \label{fig:individual_pr}
 \end{figure}
@@ -238,13 +247,15 @@ extended grid winner $\lambda$=0.65 yields NDCG@100=0.7779 ($\Delta$=+0.001, wit
 % ── 3b.5  PER-TOPIC ANALYSIS ─────────────────────────────────────────────────
 \subsubsection{Per-Topic AP Distribution}
 \begin{itemize}
-  \item AP ranges widely across topics — high sensitivity to query phrasing.
-  \item \textbf{Best:} topic 170 (AP=0.9289) — specific clinical terminology.
-  \item \textbf{Median:} topic 138 (AP=0.6572).
-  \item \textbf{Worst:} topic 156 (AP=0.1862) — broad query; many relevant
-        PMIDs absent from top-100.
+  \item AP ranges widely across topics — high sensitivity to query phrasing
+        and topic specificity.
+  \item \textbf{Best:} topic 170 (isoniazid hepatotoxicity, AP=0.8961) —
+        specific clinical/drug terminology; precise biomedical vocabulary.
+  \item \textbf{Median:} topic 120 (causes of facial numbness, AP=0.6277).
+  \item \textbf{Worst:} topic 140 (spontaneous hand fractures, AP=0.1168) —
+        broad/ambiguous query; few relevant PMIDs retrievable in top-100.
   \item \textbf{IDF analysis:} low-IDF terms (``treatment'', ``patient'')
-        correlate with low AP; disease-specific or gene-symbol terms
+        correlate with low AP; disease-specific or drug/gene-symbol terms
         correlate with high AP.
 \end{itemize}
 

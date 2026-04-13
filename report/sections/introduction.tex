@@ -42,8 +42,9 @@
                 LM Dirichlet, dense KNN, and Reciprocal Rank Fusion (RRF).
       \item[--] Evaluate with MAP, MRR, P@10, R@100, NDCG@100 against
                 citation-derived relevance judgements.
-      \item[--] Best Phase~1 result: \textbf{RRF (tuned) NDCG@100 = 0.8259,
-                MAP = 0.6262, R@100 = 0.9143} on 33 held-out test queries.
+      \item[--] Best Phase~1 result: \textbf{KNN (MedCPT) NDCG@100 = 0.8077,
+                MAP = 0.6143, R@100 = 0.8933} on 33 held-out test queries.
+                RRF (BM25+MedCPT, $k$=60) reaches NDCG@100=0.8245.
     \end{itemize}
 
   \item \textbf{Phase 2 — RAG \& LLM Judges (upcoming):}
@@ -70,8 +71,8 @@
       \item[--] Systematic hyperparameter tuning with strict train/test discipline
                 (5-fold CV on 32 train queries; test set touched once).
       \item[--] Encoder comparison demonstrating that domain-matched MedCPT
-                yields $+$0.0506 NDCG@100 over general-domain msmarco-distilbert
-                on the test set ($+$42.8\% relative on train).
+                yields $+$0.0501 NDCG@100 over general-domain msmarco-distilbert
+                on the test set (0.7576$\to$0.8077, $+$42.8\% relative on train CV).
       \item[--] Post-hoc analyses: statistical significance tests, IDF-based
                 difficulty characterisation, Jaccard overlap, confusion matrix
                 at P@10, query/document length correlations.

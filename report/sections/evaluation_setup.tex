@@ -20,7 +20,7 @@
         2024 system submissions — \emph{not} human-assessed.
   \item \textbf{Binary qrels:} supporting=1, all others=0.
         Mean 46.1 relevant docs/topic (range 8--88).
-  \item \textbf{Graded qrels:} supporting=2, neutral=1, others=0.
+  \item \textbf{Graded qrels:} supporting=5, neutral=2, others=0.
         Mean 49.5 relevant docs/topic.
   \item \textbf{Important caveat:} the high mean relevant-doc count (46.1)
         is $3\text{--}15\times$ above standard TREC tasks.
@@ -69,9 +69,9 @@
         — \textbf{primary TREC BioGen metric}:
     \begin{itemize}
       \item[--] $\text{DCG} = \sum_{i=1}^{100}
-                \frac{\text{rel}_i}{\log_2(i+2)}$;\quad
+                \frac{2^{\text{rel}_i}-1}{\log_2(i+2)}$;\quad
                 $\text{NDCG} = \text{DCG}/\text{IDCG}$.
-      \item[--] Uses graded relevance (supporting=2, neutral=1).
+      \item[--] Uses graded relevance (supporting=5, neutral=2).
       \item[--] Discounts documents ranked lower — rewards finding supporting
                 evidence early.
     \end{itemize}
@@ -100,11 +100,13 @@
 \begin{itemize}
   \item \textbf{Query field:} \texttt{topic+question} (topic keyword
         concatenated with clinical question).
-  \item \textbf{BM25:} $k_1$=1.5, $b$=1.0 — CV NDCG@100=0.8011.
-  \item \textbf{LM Jelinek-Mercer:} $\lambda$=0.65 (extended grid winner) — CV NDCG@100=0.7779. Original grid {0.1,0.3,0.5,0.7,0.9} found $\lambda$=0.7 (0.7769); adding $\lambda$=0.65 and 0.75 revealed the true optimum at 0.65 ($\Delta$=+0.001, within noise). Test-set run file uses $\lambda$=0.7 (pre-extension); performance difference is negligible.
-  \item \textbf{LM Dirichlet:} $\mu$=75 (run files); CV winner $\mu$=100
-        ($\Delta$=0.0013, within noise) — CV NDCG@100=0.7723.
-  \item \textbf{Dense encoder:} MedCPT (asymmetric) — CV NDCG@100=0.8296.
+  \item \textbf{BM25:} $k_1$=1.5, $b$=1.0 — CV NDCG@100=0.7989.
+  \item \textbf{LM Jelinek-Mercer:} $\lambda$=0.65 (extended grid winner) — CV NDCG@100=0.7754. Original grid {0.1,0.3,0.5,0.7,0.9} found $\lambda$=0.7 (0.7746); adding $\lambda$=0.65 and 0.75 confirmed 0.65 as the optimum ($\Delta$=+0.0008, within noise).
+  \item \textbf{LM Dirichlet:} $\mu$=100 (CV winner) — CV NDCG@100=0.7706
+        ($\Delta$=+0.0196 vs default $\mu$=2000).
+  \item \textbf{Dense encoder:} MedCPT (asymmetric) — CV NDCG@100=0.8273.
   \item \textbf{Fusion (Phase~2 backbone):} RRF $k$=60, tuned BM25 +
-        MedCPT KNN — test NDCG@100=\textbf{0.8259}.
+        MedCPT KNN — test NDCG@100=\textbf{0.8245}.
+  \item \textbf{Best overall on train CV:} KNN(MedCPT) NDCG@100=0.8273.
+        Best overall on test set: RRF (BM25+MedCPT) NDCG@100=\textbf{0.8245}.
 \end{itemize}

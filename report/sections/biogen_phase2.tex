@@ -20,9 +20,12 @@
 
   \item \textbf{Retrieval backbone (inherited from Phase~1):}
     \begin{itemize}
-      \item[--] RRF (tuned): BM25 ($k_1$=1.5, $b$=1.0) + MedCPT KNN.
-      \item[--] NDCG@100=0.8259, R@100=0.9143 — retrieves 91.4\% of relevant
-                docs in top 100, providing a rich evidence pool for generation.
+      \item[--] Phase~2 locked strategy: KNN(MedCPT), with RRF fallback
+                (BM25 $k_1$=1.5, $b$=1.0 + MedCPT KNN, $k$=60).
+      \item[--] KNN(MedCPT): NDCG@100=0.8077, R@100=0.8933; RRF:
+                NDCG@100=0.8245, R@100=0.8924 — both retrieve $>$89\% of
+                relevant docs in top 100, providing a rich evidence pool
+                for generation.
     \end{itemize}
 
   \item \textbf{Cross-encoder reranking (planned):}

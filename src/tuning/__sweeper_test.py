@@ -693,6 +693,58 @@ def test_field_ablation(client, test_index: str, train_topics, qrels, qrels_grad
 
 
 # ---------------------------------------------------------------------------
+# 10. field_ablation() with pre-built retriever — offline
+# ---------------------------------------------------------------------------
+
+def test_field_ablation_with_retriever_offline():
+    _section("10. field_ablation() with pre-built retriever — offline (_MockRetriever)")
+
+    n_docs, n_queries = 20, 8
+    topics  = _fake_topics(n_queries)
+    doc_ids = [f"docOFF{i:03d}" for i in range(n_docs)]
+    qrels        = _fake_qrels(topics, doc_ids, n_rel=3)
+    qrels_graded = {t["id"]: {doc_ids[0]: 2, doc_ids[1]: 1} for t in topics}
+
+    mock_ret = _MockRetriever(doc_ids)
+
+    # Pass retriever directly — client and index_name must NOT be required
+    winner, results = field_ablation(
+        retriever    = mock_ret,
+        all_doc_ids  = doc_ids,
+        train_topics = topics,
+        qrels        = qrels,
+        qrels_graded = qrels_graded,
+    )
+
+    valid_fields = ("topic", "question", "narrative",
+                    "topic+question", "topic+narrative", "concatenated")
+    _assert(winner in valid_fields,
+            f"winner is one of the 6 valid fields (got '{winner}')")
+    _assert(len(results) == 6,
+            f"results dict has 6 entries (got {len(results)})")
+    for f in valid_fields:
+        _assert(f in results, f"field '{f}' present in results")
+        _assert("NDCG@100" in results[f], f"results['{f}'] has NDCG@100 key")
+        _assert(0.0 <= results[f]["NDCG@100"] <= 1.0,
+                f"results['{f}']['NDCG@100'] in [0,1]: {results[f]['NDCG@100']:.4f}")
+    _assert(winner == max(valid_fields, key=lambda f: results[f]["NDCG@100"]),
+            "winner == argmax NDCG@100 over all fields")
+    print(f"  [info] winning field: '{winner}'")
+
+    # Confirm ValueError is raised when neither retriever nor client is supplied
+    try:
+        field_ablation(
+            all_doc_ids  = doc_ids,
+            train_topics = topics,
+            qrels        = qrels,
+            qrels_graded = qrels_graded,
+        )
+        _fail("should have raised ValueError when retriever=None and client=None")
+    except ValueError:
+        _ok("ValueError raised when retriever=None and client=None/index_name=''")
+
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
@@ -713,6 +765,7 @@ def main():
     test_sweep_result_unit()
     test_plot_smoke()
     test_encoder_sweep_offline()
+    test_field_ablation_with_retriever_offline()
 
     # ── Integration tests (need live OpenSearch + a dedicated test index) ───
     _section("Integration test setup")

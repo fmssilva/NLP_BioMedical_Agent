@@ -11,12 +11,13 @@
         LM-Jelinek-Mercer, LM-Dirichlet, Dense KNN, RRF); disciplined
         hyperparameter tuning via 5-fold CV on 32 train queries;
         field ablation, encoder comparison, statistical significance tests.
-  \item \textbf{Best result:} RRF fusion of tuned BM25 and MedCPT KNN
-        — NDCG@100=0.8259, MAP=0.6262, Recall@100=0.9143 on 33 test topics;
-        statistically significant vs.\ BM25 baseline ($p$=0.0004).
+  \item \textbf{Best result:} KNN(MedCPT) — NDCG@100=0.8077, MAP=0.6143,
+        Recall@100=0.8933 on 33 test topics (Phase~2 locked strategy);
+        RRF (BM25+MedCPT KNN, $k$=60) reaches NDCG@100=0.8245 on the same
+        set; both statistically significant vs.\ BM25 baseline ($p$=0.0004).
   \item \textbf{Key finding:} domain-specialised dense encoding (MedCPT,
         trained on PubMed citation graph) is the single most impactful
-        component ($\Delta$NDCG@100=+0.0506 vs.\ general-purpose baseline).
+        component ($\Delta$NDCG@100=+0.0501 vs.\ general-purpose baseline).
   \item \textbf{Phases~2--3 (planned):} cross-encoder reranking and
         LLM-augmented generation (vLLM, MedCPT-Cross-Encoder, LLM-as-judge);
         then a ReAct agentic loop for multi-step biomedical synthesis.
