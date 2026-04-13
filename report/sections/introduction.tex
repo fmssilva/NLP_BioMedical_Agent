@@ -6,78 +6,56 @@
 \label{sec:intro}
 
 % ── MOTIVATION & PROBLEM DOMAIN ──────────────────────────────────────────────
-\begin{itemize}
-  \item LLMs have significantly advanced biomedical NLP tasks: question answering,
-        literature summarisation, clinical note processing.
-  \item Key challenge: \textbf{hallucinations and confabulations} — LLMs generate
-        plausible but unsupported claims, especially dangerous in clinical settings.
-  \item Grounding LLM outputs in retrieved evidence is the standard mitigation strategy
-        (Retrieval-Augmented Generation, RAG).
-  \item TREC BioGen 2024/2025~\cite{biogen2024} formalises this as a shared task: retrieve PubMed
-        abstracts, generate a grounded answer, and cite supporting evidence.
+Large language models have substantially advanced biomedical NLP, enabling
+question answering, literature summarisation, and clinical note processing at
+scale.  A persistent concern, however, is that these models can generate
+plausible yet unsupported claims — so-called hallucinations — which pose
+serious risks in clinical settings.  The standard mitigation strategy grounds
+every LLM output in retrieved evidence through Retrieval-Augmented Generation
+(RAG).  TREC BioGen 2024/2025~\cite{biogen2024} formalises this idea as a
+shared task: given a biomedical question, retrieve relevant PubMed abstracts,
+generate a paragraph-length answer, and cite supporting evidence at the
+sentence level.
 
-  \item \textbf{Task definition:} given a biomedical question (topic + clinical question +
-        narrative), retrieve relevant PubMed abstracts and eventually generate a
-        paragraph-length answer with sentence-level citations.
-
-  \item \textbf{Why this is hard:}
-    \begin{itemize}
-      \item[--] Biomedical vocabulary gap: clinical queries use lay or mixed terminology;
-                PubMed abstracts use precise scientific notation.
-      \item[--] Precision vs.\ recall tension: missing a supporting study is as harmful as
-                citing a contradicting one.
-      \item[--] Citation-level granularity: the answer must ground every claim, not just
-                list references.
-      \item[--] Evaluation complexity: requires IR metrics (MAP, NDCG) \emph{and}
-                generation quality metrics (citation accuracy, factual consistency).
-    \end{itemize}
-\end{itemize}
+Several characteristics make this task particularly demanding.
+Biomedical queries often mix lay and clinical terminology, whereas PubMed
+abstracts use precise scientific notation, creating a vocabulary gap that
+hampers lexical matching.  There is also an inherent tension between precision
+and recall: missing a key supporting study can be as harmful as retrieving a
+contradicting one.  Furthermore, the answer must ground every claim with
+citation-level granularity, and evaluation spans both IR metrics (MAP, NDCG)
+and generation quality metrics such as citation accuracy.
 
 % ── PROJECT STRUCTURE ─────────────────────────────────────────────────────────
-\begin{itemize}
-  \item \textbf{Phase 1 — Search \& Evaluation (this report):}
-    \begin{itemize}
-      \item[--] Index 4{,}194 PubMed abstracts in OpenSearch.
-      \item[--] Implement and tune 5 retrieval strategies: BM25, LM Jelinek-Mercer,
-                LM Dirichlet, dense KNN, and Reciprocal Rank Fusion (RRF).
-      \item[--] Evaluate with MAP, MRR, P@10, R@100, NDCG@100 against
-                citation-derived relevance judgements.
-      \item[--] Best Phase~1 result: \textbf{KNN (MedCPT) NDCG@100 = 0.8077,
-                MAP = 0.6143, R@100 = 0.8933} on 33 held-out test queries.
-                RRF (BM25+MedCPT, $k$=60) reaches NDCG@100=0.8245.
-    \end{itemize}
-
-  \item \textbf{Phase 2 — RAG \& LLM Judges (upcoming):}
-    \begin{itemize}
-      \item[--] Cross-encoder reranking of retrieved evidence.
-      \item[--] LLM-generated paragraph answers with per-sentence citations.
-      \item[--] LLM-as-a-judge evaluation of answer quality and citation faithfulness.
-    \end{itemize}
-
-  \item \textbf{Phase 3 — Deep Research Agent (upcoming):}
-    \begin{itemize}
-      \item[--] ReAct-style agentic loop: plan sub-topics, retrieve per sub-topic,
-                aggregate evidence, write structured report.
-      \item[--] Multi-step reasoning over biomedical literature.
-    \end{itemize}
-\end{itemize}
+This project is organised into three phases.
+\textbf{Phase~1} (the focus of this report) builds and evaluates a complete
+IR pipeline: we index 4{,}194 PubMed abstracts in OpenSearch, implement and
+tune five retrieval strategies (BM25, LM-Jelinek-Mercer, LM-Dirichlet, dense
+KNN, and Reciprocal Rank Fusion), and evaluate against citation-derived
+relevance judgements using NDCG@100, MAP, MRR, P@10, and R@100.
+Our best Phase~1 result is \textbf{KNN\,(MedCPT) with NDCG@100\,=\,0.8077,
+MAP\,=\,0.6143, R@100\,=\,0.8933} on 33 held-out test queries;
+RRF (BM25+MedCPT, $k$=60) reaches NDCG@100\,=\,0.8245.%
+\footnote{The full Phase~1 notebook is available at:
+\url{https://colab.research.google.com/drive/1UvDhFXYEzZxse6gknDyBSUaq0EAHZkFV?usp=sharing}.}
+\textbf{Phase~2} (upcoming) will add cross-encoder reranking of retrieved
+evidence, LLM-generated paragraph answers with per-sentence citations, and
+LLM-as-a-judge evaluation.
+\textbf{Phase~3} will introduce a ReAct-style agentic loop for multi-step
+biomedical synthesis.
 
 % ── CONTRIBUTIONS ─────────────────────────────────────────────────────────────
-\begin{itemize}
-  \item \textbf{Contributions (Phase 1):}
-    \begin{itemize}
-      \item[--] Full IR pipeline from raw JSONL corpus to evaluated ranked lists,
-                implemented from scratch following TREC and Lab03 protocols.
-      \item[--] Systematic hyperparameter tuning with strict train/test discipline
-                (5-fold CV on 32 train queries; test set touched once).
-      \item[--] Encoder comparison demonstrating that domain-matched MedCPT
-                yields $+$0.0501 NDCG@100 over general-domain msmarco-distilbert
-                on the test set (0.7576$\to$0.8077, $+$42.8\% relative on train CV).
-      \item[--] Post-hoc analyses: statistical significance tests, IDF-based
-                difficulty characterisation, Jaccard overlap, confusion matrix
-                at P@10, query/document length correlations.
-    \end{itemize}
-\end{itemize}
+\noindent
+\textbf{Contribution.}
+We set up a comprehensive fine-tuning and grid-search pipeline to identify the
+best retrieval models for biomedical evidence retrieval.  Each parameter
+configuration is materialised as a dedicated field in the OpenSearch index,
+enabling any downstream application to issue a query and receive the
+highest-quality ranked list of related PubMed abstracts for further analysis
+or generation.
+The implementation builds upon the laboratory exercises of the NLP\&S
+course~\cite{opensearch}, adapting their indexing, encoding, and evaluation
+patterns to the TREC BioGen domain.
 
 % ── PAPER STRUCTURE ───────────────────────────────────────────────────────────
 \noindent

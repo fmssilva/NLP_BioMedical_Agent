@@ -4,96 +4,109 @@
 \providecommand\HyField@AuxAddToCoFields[2]{}
 \citation{biogen2024}
 \@writefile{toc}{\contentsline {title}{BioMedical Natural Language Agents:\unskip \ \ignorespaces  A Search and Generation Pipeline for TREC BioGen}{1}{chapter.1}\protected@file@percent }
-\@writefile{toc}{\authcount {1}}
-\@writefile{toc}{\contentsline {author}{Francisco Silva}{1}{chapter.1}\protected@file@percent }
+\@writefile{toc}{\authcount {3}}
+\@writefile{toc}{\contentsline {author}{Francisco Silva \and R\'uben Silva \and Rog\'erio Soares}{1}{chapter.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
 \newlabel{sec:intro}{{1}{1}{Introduction}{section.1}{}}
+\citation{opensearch}
 \@writefile{toc}{\contentsline {section}{\numberline {2}BioGen NL Agent}{2}{section.2}\protected@file@percent }
 \newlabel{sec:biogen}{{2}{2}{BioGen NL Agent}{section.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Data Parsing, Indexing and Search (Phase~1)}{2}{subsection.2.1}\protected@file@percent }
 \newlabel{sec:phase1}{{2.1}{2}{Data Parsing, Indexing and Search (Phase~1)}{subsection.2.1}{}}
 \@writefile{toc}{\contentsline {subsubsection}{Corpus}{2}{section*.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{Topics}{3}{section*.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{Train/Test Split}{3}{section*.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{Relevance Judgements (qrels)}{3}{section*.5}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{Index Design}{4}{section*.6}\protected@file@percent }
-\citation{medcpt2023}
+\@writefile{toc}{\contentsline {subsubsection}{Topics}{2}{section*.3}\protected@file@percent }
+\citation{opensearch}
 \citation{robertson1994bm25}
+\citation{lm_retrieval}
+\@writefile{toc}{\contentsline {subsubsection}{Ground Truth}{3}{section*.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{Index Design}{3}{section*.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{Retrieval Strategies}{3}{section*.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Sparse retrievers:}{3}{section*.7}\protected@file@percent }
 \citation{rrf2009}
-\@writefile{toc}{\contentsline {subsubsection}{Dense Encoder}{5}{section*.7}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{Retrieval Strategies}{5}{section*.8}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{Implementation Notes}{6}{section*.9}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}LLM Augmented Generation (Phase~2)}{6}{subsection.2.2}\protected@file@percent }
-\newlabel{sec:phase2}{{2.2}{6}{LLM Augmented Generation (Phase~2)}{subsection.2.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}LLM Agentic Patterns (Phase~3)}{7}{subsection.2.3}\protected@file@percent }
-\newlabel{sec:phase3}{{2.3}{7}{LLM Agentic Patterns (Phase~3)}{subsection.2.3}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {3}Evaluation}{8}{section.3}\protected@file@percent }
-\newlabel{sec:eval}{{3}{8}{Evaluation}{section.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Experimental Setup: Datasets, Metrics and Protocols}{8}{subsection.3.1}\protected@file@percent }
-\newlabel{sec:eval_setup}{{3.1}{8}{Experimental Setup: Datasets, Metrics and Protocols}{subsection.3.1}{}}
-\@writefile{toc}{\contentsline {subsubsection}{Dataset}{8}{section*.10}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{Split Protocol}{8}{section*.11}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{Metrics}{9}{section*.12}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{Locked Configuration (Phase~1 Final)}{9}{section*.13}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Results and Discussion}{10}{subsection.3.2}\protected@file@percent }
-\newlabel{sec:eval_results}{{3.2}{10}{Results and Discussion}{subsection.3.2}{}}
-\@writefile{toc}{\contentsline {subsubsection}{Query Field Ablation (BM25, Train Set)}{10}{section*.14}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Query field ablation — BM25 default on 32 train topics. Bold = winner; NDCG@100 is the selection criterion.}}{10}{table.1}\protected@file@percent }
-\newlabel{tab:ablation}{{1}{10}{Query field ablation — BM25 default on 32 train topics. Bold = winner; NDCG@100 is the selection criterion}{table.1}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Field ablation results — NDCG@100 (primary) and MAP for each query formulation on the 32 train topics. \texttt  {topic+question} achieves the highest NDCG@100 and is locked for all subsequent experiments.}}{10}{figure.1}\protected@file@percent }
-\newlabel{fig:field_ablation}{{1}{10}{Field ablation results — NDCG@100 (primary) and MAP for each query formulation on the 32 train topics. \texttt {topic+question} achieves the highest NDCG@100 and is locked for all subsequent experiments}{figure.1}{}}
-\@writefile{toc}{\contentsline {subsubsection}{Hyperparameter Tuning (5-Fold CV, Train Set)}{10}{section*.15}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Tuning summary: baseline vs.\ tuned NDCG@100 for every model (5-fold CV on 32 train topics). Encoder selection (MedCPT) yields the largest gain ($\Delta $NDCG@100=+0.0825 over msmarco); LM-Dir correction ($\mu $=100) yields the second-largest (+0.0196).}}{11}{figure.2}\protected@file@percent }
-\newlabel{fig:tuning_summary}{{2}{11}{Tuning summary: baseline vs.\ tuned NDCG@100 for every model (5-fold CV on 32 train topics). Encoder selection (MedCPT) yields the largest gain ($\Delta $NDCG@100=+0.0825 over msmarco); LM-Dir correction ($\mu $=100) yields the second-largest (+0.0196)}{figure.2}{}}
-\@writefile{toc}{\contentsline {subsubsection}{Test Set Results (33 Topics)}{11}{section*.16}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces BM25 $k_1$/$b$ sweep — mean CV NDCG@100. Winner: $k_1$=1.5, $b$=1.0.}}{12}{figure.3}\protected@file@percent }
-\newlabel{fig:bm25_sweep}{{3}{12}{BM25 $k_1$/$b$ sweep — mean CV NDCG@100. Winner: $k_1$=1.5, $b$=1.0}{figure.3}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces LM-Dir $\mu $ sweep — mean CV NDCG@100. Default $\mu $=2000 drastically under-performs; winner is $\mu $=100.}}{12}{figure.4}\protected@file@percent }
-\newlabel{fig:lmdir_sweep}{{4}{12}{LM-Dir $\mu $ sweep — mean CV NDCG@100. Default $\mu $=2000 drastically under-performs; winner is $\mu $=100}{figure.4}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces LM-JM $\lambda $ sweep — NDCG@100 plateaus in the 0.65--0.75 range; extended grid winner $\lambda $=0.65 ($\Delta $=+0.001 vs $\lambda $=0.7).}}{12}{figure.5}\protected@file@percent }
-\newlabel{fig:lmjm_sweep}{{5}{12}{LM-JM $\lambda $ sweep — NDCG@100 plateaus in the 0.65--0.75 range; extended grid winner $\lambda $=0.65 ($\Delta $=+0.001 vs $\lambda $=0.7)}{figure.5}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Encoder comparison — NDCG@100 on 32 train topics. MedCPT dominates (+0.0837 over msmarco baseline).}}{12}{figure.6}\protected@file@percent }
-\newlabel{fig:encoder_sweep}{{6}{12}{Encoder comparison — NDCG@100 on 32 train topics. MedCPT dominates (+0.0837 over msmarco baseline)}{figure.6}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces RRF pair sweep — 9 strategy pairs × 3 $k$ values, 5-fold CV. Lexical pairs (BM25+LM-Dir, $k$=90, NDCG@100=0.7907) outperform KNN fusions at the rank-level; native hybrid fusion (Phase~2) is the recommended approach for BM25+KNN.}}{12}{figure.7}\protected@file@percent }
-\newlabel{fig:rrf_sweep}{{7}{12}{RRF pair sweep — 9 strategy pairs × 3 $k$ values, 5-fold CV. Lexical pairs (BM25+LM-Dir, $k$=90, NDCG@100=0.7907) outperform KNN fusions at the rank-level; native hybrid fusion (Phase~2) is the recommended approach for BM25+KNN}{figure.7}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Baseline (default parameters) vs tuned — all 5 metrics on the 33-query test set. NDCG@100 is the primary metric (graded qrels). Bold = best per column.}}{13}{table.2}\protected@file@percent }
-\newlabel{tab:test_results}{{2}{13}{Baseline (default parameters) vs tuned — all 5 metrics on the 33-query test set. NDCG@100 is the primary metric (graded qrels). Bold = best per column}{table.2}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces All 5 metrics for each strategy, baseline (light) vs tuned (dark), on the 33-query test set. MedCPT KNN shows the largest improvement across all metrics; BM25 tuning effect is negligible.}}{13}{figure.8}\protected@file@percent }
-\newlabel{fig:baseline_vs_tuned}{{8}{13}{All 5 metrics for each strategy, baseline (light) vs tuned (dark), on the 33-query test set. MedCPT KNN shows the largest improvement across all metrics; BM25 tuning effect is negligible}{figure.8}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Tuning gain on the test set ($\Delta $NDCG@100 and $\Delta $MAP, tuned $-$ baseline). KNN and RRF gain significantly; BM25 tuning yields no measurable gain ($\Delta \approx -0.0009$).}}{13}{figure.9}\protected@file@percent }
-\newlabel{fig:tuning_gain}{{9}{13}{Tuning gain on the test set ($\Delta $NDCG@100 and $\Delta $MAP, tuned $-$ baseline). KNN and RRF gain significantly; BM25 tuning yields no measurable gain ($\Delta \approx -0.0009$)}{figure.9}{}}
-\@writefile{toc}{\contentsline {subsubsection}{Precision-Recall Analysis}{14}{section*.17}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Mean interpolated PR curves for all strategies on the 33-query test set (left) with MAP/MRR bar chart (right). RRF (tuned) and KNN (MedCPT) dominate across the full recall range. LM variants show steeper early-recall drops.}}{14}{figure.10}\protected@file@percent }
-\newlabel{fig:pr_curves}{{10}{14}{Mean interpolated PR curves for all strategies on the 33-query test set (left) with MAP/MRR bar chart (right). RRF (tuned) and KNN (MedCPT) dominate across the full recall range. LM variants show steeper early-recall drops}{figure.10}{}}
-\@writefile{toc}{\contentsline {subsubsection}{Per-Topic AP Distribution}{14}{section*.18}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{Retrieval Diversity (Jaccard Overlap)}{14}{section*.19}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {11}{\ignorespaces PR curve interpretation guide (top row: perfect / random / ideal retriever; bottom row: fair / moderate / our actual test results). Our strategies fall in the \emph  {moderate-to-good} range — well above random, with RRF approaching the ideal curve shape.}}{15}{figure.11}\protected@file@percent }
-\newlabel{fig:pr_interp}{{11}{15}{PR curve interpretation guide (top row: perfect / random / ideal retriever; bottom row: fair / moderate / our actual test results). Our strategies fall in the \emph {moderate-to-good} range — well above random, with RRF approaching the ideal curve shape}{figure.11}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {12}{\ignorespaces Per-topic PR curves for KNN(MedCPT) on all 33 test topics. Green = best topic (170 — isoniazid hepatotoxicity, AP=0.8961); red = worst topic (140 — spontaneous hand fractures, AP=0.1168); orange = median topic (120 — causes of facial numbness, AP=0.6277). Gray curves = remaining 30 topics. Dashed navy = mean AP (MAP=0.6143). Wide spread indicates high sensitivity to topic vocabulary.}}{15}{figure.12}\protected@file@percent }
-\newlabel{fig:individual_pr}{{12}{15}{Per-topic PR curves for KNN(MedCPT) on all 33 test topics. Green = best topic (170 — isoniazid hepatotoxicity, AP=0.8961); red = worst topic (140 — spontaneous hand fractures, AP=0.1168); orange = median topic (120 — causes of facial numbness, AP=0.6277). Gray curves = remaining 30 topics. Dashed navy = mean AP (MAP=0.6143). Wide spread indicates high sensitivity to topic vocabulary}{figure.12}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {13}{\ignorespaces Per-topic AP distribution across all strategies (test set, 33 topics). RRF (tuned) achieves the highest median AP and the least variance. Wide IQR reflects inherent topic-difficulty spread. Outliers below the whisker correspond to hard topics (AP$<$0.3).}}{16}{figure.13}\protected@file@percent }
-\newlabel{fig:ap_boxplot}{{13}{16}{Per-topic AP distribution across all strategies (test set, 33 topics). RRF (tuned) achieves the highest median AP and the least variance. Wide IQR reflects inherent topic-difficulty spread. Outliers below the whisker correspond to hard topics (AP$<$0.3)}{figure.13}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {14}{\ignorespaces Jaccard overlap between top-100 result sets for all strategy pairs (test set). BM25 and MedCPT KNN share very few results ($\approx $0.13), explaining why their fusion yields the largest RRF gain.}}{16}{figure.14}\protected@file@percent }
-\newlabel{fig:jaccard}{{14}{16}{Jaccard overlap between top-100 result sets for all strategy pairs (test set). BM25 and MedCPT KNN share very few results ($\approx $0.13), explaining why their fusion yields the largest RRF gain}{figure.14}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {15}{\ignorespaces Corpus document length distribution (word count). Mean=150 words; right-skewed with a long tail up to 964 words. Motivates $b$=1.0 length normalisation in BM25 and low $\mu $ in LM-Dir.}}{17}{figure.15}\protected@file@percent }
-\newlabel{fig:doc_lengths}{{15}{17}{Corpus document length distribution (word count). Mean=150 words; right-skewed with a long tail up to 964 words. Motivates $b$=1.0 length normalisation in BM25 and low $\mu $ in LM-Dir}{figure.15}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {16}{\ignorespaces Reciprocal rank distribution for each strategy (test set). MedCPT and RRF return the first relevant document much earlier (higher RR) than lexical models.}}{17}{figure.16}\protected@file@percent }
-\newlabel{fig:rr_dist}{{16}{17}{Reciprocal rank distribution for each strategy (test set). MedCPT and RRF return the first relevant document much earlier (higher RR) than lexical models}{figure.16}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {17}{\ignorespaces Confusion matrix at P@10 — relevant vs.\ retrieved in the top-10 results, per strategy. RRF (tuned) achieves the highest true positive rate in the top-10 positions.}}{17}{figure.17}\protected@file@percent }
-\newlabel{fig:confusion_p10}{{17}{17}{Confusion matrix at P@10 — relevant vs.\ retrieved in the top-10 results, per strategy. RRF (tuned) achieves the highest true positive rate in the top-10 positions}{figure.17}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {18}{\ignorespaces Query length (token count) vs.\ AP per topic for RRF (tuned). Longer queries generally produce higher AP, consistent with the \texttt  {topic+question} ablation result.}}{17}{figure.18}\protected@file@percent }
-\newlabel{fig:query_len_ap}{{18}{17}{Query length (token count) vs.\ AP per topic for RRF (tuned). Longer queries generally produce higher AP, consistent with the \texttt {topic+question} ablation result}{figure.18}{}}
-\@writefile{toc}{\contentsline {subsubsection}{Additional Analysis}{18}{figure.18}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {4}Conclusions}{18}{section.4}\protected@file@percent }
-\newlabel{sec:conclusions}{{4}{18}{Conclusions}{section.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Phase 1 Achievements}{18}{subsection.4.1}\protected@file@percent }
-\newlabel{sec:achievements}{{4.1}{18}{Phase 1 Achievements}{subsection.4.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Limitations}{18}{subsection.4.2}\protected@file@percent }
-\newlabel{sec:limitations}{{4.2}{18}{Limitations}{subsection.4.2}{}}
+\citation{reimers2019sbert}
+\citation{medcpt2023}
+\citation{reimers2019sbert}
+\@writefile{toc}{\contentsline {paragraph}{Dense retriever:}{4}{section*.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Hybrid fusion:}{4}{section*.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{Dense Encoder Details}{4}{section*.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Pooling-mode comparison:}{4}{section*.11}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Pooling-mode comparison — NDCG@100 (brute-force cosine, 32 train topics). Bold = best mode per encoder. CLS wins for MedCPT and SPECTER-2; mean-no-special wins for msmarco and multi-qa.}}{4}{table.1}\protected@file@percent }
+\newlabel{tab:pooling}{{1}{4}{Pooling-mode comparison — NDCG@100 (brute-force cosine, 32 train topics). Bold = best mode per encoder. CLS wins for MedCPT and SPECTER-2; mean-no-special wins for msmarco and multi-qa}{table.1}{}}
+\@writefile{toc}{\contentsline {paragraph}{Domain-matched encoder:}{4}{section*.12}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Pooling-mode comparison — NDCG@100 for each encoder $\times $ pooling mode (brute-force exact cosine on 32 train topics). MedCPT + CLS yields the highest single score (0.8374).}}{5}{figure.1}\protected@file@percent }
+\newlabel{fig:pooling}{{1}{5}{Pooling-mode comparison — NDCG@100 for each encoder $\times $ pooling mode (brute-force exact cosine on 32 train topics). MedCPT + CLS yields the highest single score (0.8374)}{figure.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}LLM Augmented Generation (Phase~2)}{5}{subsection.2.2}\protected@file@percent }
+\newlabel{sec:phase2}{{2.2}{5}{LLM Augmented Generation (Phase~2)}{subsection.2.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}LLM Agentic Patterns (Phase~3)}{5}{subsection.2.3}\protected@file@percent }
+\newlabel{sec:phase3}{{2.3}{5}{LLM Agentic Patterns (Phase~3)}{subsection.2.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Evaluation}{5}{section.3}\protected@file@percent }
+\newlabel{sec:eval}{{3}{5}{Evaluation}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Experimental Setup: Datasets, Metrics and Protocols}{5}{subsection.3.1}\protected@file@percent }
+\newlabel{sec:eval_setup}{{3.1}{5}{Experimental Setup: Datasets, Metrics and Protocols}{subsection.3.1}{}}
+\@writefile{toc}{\contentsline {subsubsection}{Dataset}{5}{section*.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{Relevance Judgements (qrels)}{5}{section*.14}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{Split Protocol}{6}{section*.15}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{Metrics}{6}{section*.16}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Results and Discussion}{7}{subsection.3.2}\protected@file@percent }
+\newlabel{sec:eval_results}{{3.2}{7}{Results and Discussion}{subsection.3.2}{}}
+\@writefile{toc}{\contentsline {subsubsection}{Query Field Ablation (BM25, Train Set)}{7}{section*.17}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Query field ablation — BM25 default on 32 train topics. Bold = winner; NDCG@100 is the selection criterion.}}{7}{table.2}\protected@file@percent }
+\newlabel{tab:ablation}{{2}{7}{Query field ablation — BM25 default on 32 train topics. Bold = winner; NDCG@100 is the selection criterion}{table.2}{}}
+\@writefile{toc}{\contentsline {subsubsection}{Hyperparameter Tuning (5-Fold CV, Train Set)}{7}{section*.18}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{BM25:}{7}{section*.19}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{LM Dirichlet:}{7}{section*.20}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Field ablation results — NDCG@100 (primary) and MAP for each query formulation on the 32 train topics. \texttt  {topic+question} achieves the highest NDCG@100 and is locked for all subsequent experiments.}}{8}{figure.2}\protected@file@percent }
+\newlabel{fig:field_ablation}{{2}{8}{Field ablation results — NDCG@100 (primary) and MAP for each query formulation on the 32 train topics. \texttt {topic+question} achieves the highest NDCG@100 and is locked for all subsequent experiments}{figure.2}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces BM25 $k_1$/$b$ sweep — mean CV NDCG@100. Winner: $k_1$=1.5, $b$=1.0.}}{8}{figure.3}\protected@file@percent }
+\newlabel{fig:bm25_sweep}{{3}{8}{BM25 $k_1$/$b$ sweep — mean CV NDCG@100. Winner: $k_1$=1.5, $b$=1.0}{figure.3}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces LM-Dir $\mu $ sweep — mean CV NDCG@100. Default $\mu $=2000 drastically under-performs; winner is $\mu $=100.}}{9}{figure.4}\protected@file@percent }
+\newlabel{fig:lmdir_sweep}{{4}{9}{LM-Dir $\mu $ sweep — mean CV NDCG@100. Default $\mu $=2000 drastically under-performs; winner is $\mu $=100}{figure.4}{}}
+\@writefile{toc}{\contentsline {paragraph}{LM Jelinek-Mercer:}{9}{section*.21}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces LM-JM $\lambda $ sweep — NDCG@100 plateaus in the 0.65--0.75 range; extended grid winner $\lambda $=0.65.}}{9}{figure.5}\protected@file@percent }
+\newlabel{fig:lmjm_sweep}{{5}{9}{LM-JM $\lambda $ sweep — NDCG@100 plateaus in the 0.65--0.75 range; extended grid winner $\lambda $=0.65}{figure.5}{}}
+\@writefile{toc}{\contentsline {paragraph}{Dense encoder comparison:}{9}{section*.22}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Dense encoder comparison — 5-fold CV on 32 train topics (each encoder uses its best pooling mode from Table~\ref {tab:pooling}). Bold = best per column; $\star $ = selected encoder. MedCPT wins the primary metric (NDCG@100) despite multi-qa leading on MAP and P@10.}}{10}{table.3}\protected@file@percent }
+\newlabel{tab:encoder_comp}{{3}{10}{Dense encoder comparison — 5-fold CV on 32 train topics (each encoder uses its best pooling mode from Table~\ref {tab:pooling}). Bold = best per column; $\star $ = selected encoder. MedCPT wins the primary metric (NDCG@100) despite multi-qa leading on MAP and P@10}{table.3}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Encoder comparison — NDCG@100 on 32 train topics. MedCPT dominates (+0.0825 over msmarco baseline).}}{10}{figure.6}\protected@file@percent }
+\newlabel{fig:encoder_sweep}{{6}{10}{Encoder comparison — NDCG@100 on 32 train topics. MedCPT dominates (+0.0825 over msmarco baseline)}{figure.6}{}}
+\@writefile{toc}{\contentsline {paragraph}{RRF pair sweep:}{10}{section*.23}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Train CV summary:}{10}{section*.24}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{Locked Configuration}{10}{section*.25}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{Test Set Results (33 Topics)}{10}{section*.26}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces RRF pair sweep — 9 strategy pairs $\times $ 3 $k$ values, 5-fold CV. Lexical pairs (BM25+LM-Dir, $k$=90, NDCG@100=0.7907) outperform KNN fusions at the rank-level.}}{11}{figure.7}\protected@file@percent }
+\newlabel{fig:rrf_sweep}{{7}{11}{RRF pair sweep — 9 strategy pairs $\times $ 3 $k$ values, 5-fold CV. Lexical pairs (BM25+LM-Dir, $k$=90, NDCG@100=0.7907) outperform KNN fusions at the rank-level}{figure.7}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Train CV leaderboard — all tuned solo strategies and the best RRF pair, ranked by NDCG@100 (5-fold CV on 32 train topics). KNN(MedCPT) is the overall winner; no RRF pair surpasses it.}}{11}{table.4}\protected@file@percent }
+\newlabel{tab:leaderboard}{{4}{11}{Train CV leaderboard — all tuned solo strategies and the best RRF pair, ranked by NDCG@100 (5-fold CV on 32 train topics). KNN(MedCPT) is the overall winner; no RRF pair surpasses it}{table.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Tuning summary: baseline vs.\ tuned NDCG@100 for every model (5-fold CV on 32 train topics). Encoder selection (MedCPT) yields the largest gain ($\Delta $NDCG@100=+0.0825 over msmarco); LM-Dir correction ($\mu $=100) yields the second-largest (+0.0196).}}{11}{figure.8}\protected@file@percent }
+\newlabel{fig:tuning_summary}{{8}{11}{Tuning summary: baseline vs.\ tuned NDCG@100 for every model (5-fold CV on 32 train topics). Encoder selection (MedCPT) yields the largest gain ($\Delta $NDCG@100=+0.0825 over msmarco); LM-Dir correction ($\mu $=100) yields the second-largest (+0.0196)}{figure.8}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Locked Phase~1 configuration. All values selected on the 32-query train set (5-fold CV); test set touched once.}}{12}{table.5}\protected@file@percent }
+\newlabel{tab:locked_config}{{5}{12}{Locked Phase~1 configuration. All values selected on the 32-query train set (5-fold CV); test set touched once}{table.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Baseline (default parameters) vs tuned — all 5 metrics on the 33-query test set. NDCG@100 is the primary metric (graded qrels). Bold = best per column.}}{12}{table.6}\protected@file@percent }
+\newlabel{tab:test_results}{{6}{12}{Baseline (default parameters) vs tuned — all 5 metrics on the 33-query test set. NDCG@100 is the primary metric (graded qrels). Bold = best per column}{table.6}{}}
+\@writefile{toc}{\contentsline {paragraph}{Key observations:}{12}{section*.27}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Tuning gain on the test set ($\Delta $NDCG@100 and $\Delta $MAP, tuned $-$ baseline). KNN and RRF gain significantly; BM25 tuning yields no measurable gain ($\Delta $NDCG@100\,=\,$-$0.0014).}}{13}{figure.9}\protected@file@percent }
+\newlabel{fig:tuning_gain}{{9}{13}{Tuning gain on the test set ($\Delta $NDCG@100 and $\Delta $MAP, tuned $-$ baseline). KNN and RRF gain significantly; BM25 tuning yields no measurable gain ($\Delta $NDCG@100\,=\,$-$0.0014)}{figure.9}{}}
+\@writefile{toc}{\contentsline {subsubsection}{Per-Topic Analysis}{13}{section*.28}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{Precision-Recall Analysis (MAP)}{13}{section*.29}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Per-topic PR curves for KNN(MedCPT) on all 33 test topics. Green = best topic (170 — isoniazid hepatotoxicity, AP=0.8961); red = worst topic (140 — spontaneous hand fractures, AP=0.1168); orange = median topic (120 — causes of facial numbness, AP=0.6277). Gray curves = remaining 30 topics. Dashed navy = mean AP (MAP=0.6143). Wide spread indicates high sensitivity to topic vocabulary.}}{14}{figure.10}\protected@file@percent }
+\newlabel{fig:individual_pr}{{10}{14}{Per-topic PR curves for KNN(MedCPT) on all 33 test topics. Green = best topic (170 — isoniazid hepatotoxicity, AP=0.8961); red = worst topic (140 — spontaneous hand fractures, AP=0.1168); orange = median topic (120 — causes of facial numbness, AP=0.6277). Gray curves = remaining 30 topics. Dashed navy = mean AP (MAP=0.6143). Wide spread indicates high sensitivity to topic vocabulary}{figure.10}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11}{\ignorespaces Per-topic AP distribution across all strategies (test set, 33 topics). RRF (tuned) achieves the highest median AP and the least variance. Wide IQR reflects inherent topic-difficulty spread. Outliers below the whisker correspond to hard topics (AP$<$0.3).}}{14}{figure.11}\protected@file@percent }
+\newlabel{fig:ap_boxplot}{{11}{14}{Per-topic AP distribution across all strategies (test set, 33 topics). RRF (tuned) achieves the highest median AP and the least variance. Wide IQR reflects inherent topic-difficulty spread. Outliers below the whisker correspond to hard topics (AP$<$0.3)}{figure.11}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {12}{\ignorespaces Mean interpolated PR curves for all strategies on the 33-query test set (left) with MAP/MRR bar chart (right). RRF (tuned) and KNN (MedCPT) dominate across the full recall range. LM variants show steeper early-recall drops.}}{15}{figure.12}\protected@file@percent }
+\newlabel{fig:pr_curves}{{12}{15}{Mean interpolated PR curves for all strategies on the 33-query test set (left) with MAP/MRR bar chart (right). RRF (tuned) and KNN (MedCPT) dominate across the full recall range. LM variants show steeper early-recall drops}{figure.12}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Conclusions}{15}{section.4}\protected@file@percent }
+\newlabel{sec:conclusions}{{4}{15}{Conclusions}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Phase 1 Achievements}{15}{subsection.4.1}\protected@file@percent }
+\newlabel{sec:achievements}{{4.1}{15}{Phase 1 Achievements}{subsection.4.1}{}}
 \bibstyle{splncs04}
 \bibdata{sections/references}
 \bibcite{rrf2009}{1}
 \bibcite{biogen2024}{2}
 \bibcite{medcpt2023}{3}
-\bibcite{robertson1994bm25}{4}
-\gdef \@abspage@last{19}
+\bibcite{opensearch}{4}
+\bibcite{lm_retrieval}{5}
+\bibcite{reimers2019sbert}{6}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Limitations}{16}{subsection.4.2}\protected@file@percent }
+\newlabel{sec:limitations}{{4.2}{16}{Limitations}{subsection.4.2}{}}
+\bibcite{robertson1994bm25}{7}
+\gdef \@abspage@last{17}

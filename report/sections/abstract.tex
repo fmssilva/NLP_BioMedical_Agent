@@ -3,23 +3,23 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{abstract}
-% Bullet-point plan (will be rewritten as prose for final submission)
-\begin{itemize}
-  \item \textbf{Task:} TREC BioGen 2024 — biomedical question answering with
-        citation grounding over 4{,}194 PubMed abstracts, 65 topics.
-  \item \textbf{Phase~1 (IR pipeline):} five retrieval strategies (BM25,
-        LM-Jelinek-Mercer, LM-Dirichlet, Dense KNN, RRF); disciplined
-        hyperparameter tuning via 5-fold CV on 32 train queries;
-        field ablation, encoder comparison, statistical significance tests.
-  \item \textbf{Best result:} KNN(MedCPT) — NDCG@100=0.8077, MAP=0.6143,
-        Recall@100=0.8933 on 33 test topics (Phase~2 locked strategy);
-        RRF (BM25+MedCPT KNN, $k$=60) reaches NDCG@100=0.8245 on the same
-        set; both statistically significant vs.\ BM25 baseline ($p$=0.0004).
-  \item \textbf{Key finding:} domain-specialised dense encoding (MedCPT,
-        trained on PubMed citation graph) is the single most impactful
-        component ($\Delta$NDCG@100=+0.0501 vs.\ general-purpose baseline).
-  \item \textbf{Phases~2--3 (planned):} cross-encoder reranking and
-        LLM-augmented generation (vLLM, MedCPT-Cross-Encoder, LLM-as-judge);
-        then a ReAct agentic loop for multi-step biomedical synthesis.
-\end{itemize}
+We address the TREC BioGen 2024 shared task, which requires retrieving
+relevant PubMed abstracts for 65 biomedical topics and grounding
+generated answers with sentence-level citations.
+In this first phase we build and evaluate a complete information retrieval
+pipeline over 4{,}194 PubMed abstracts, comparing five retrieval strategies:
+BM25, LM-Jelinek-Mercer, LM-Dirichlet, dense KNN, and Reciprocal Rank
+Fusion (RRF).  Hyperparameters are selected through query-field ablation,
+encoder comparison, and 5-fold cross-validation on 32~train queries,
+after which the held-out 33-query test set is evaluated exactly once.
+Our best single model, KNN with the domain-specialised MedCPT encoder,
+achieves NDCG@100\,=\,0.8077, MAP\,=\,0.6143, and
+Recall@100\,=\,0.8933; fusing it with BM25 via RRF ($k$\,=\,60) pushes
+NDCG@100 to 0.8245.
+Selecting a domain-matched encoder trained on 23M PubMed click-through
+pairs proves to be the single most impactful design choice,
+yielding $\Delta$NDCG@100 = +0.0501 versus the general-purpose baseline.
+Phases~2 and~3 will extend this retrieval backbone with cross-encoder
+reranking, LLM-augmented answer generation, and a ReAct-style agentic
+loop for multi-step biomedical synthesis.
 \end{abstract}

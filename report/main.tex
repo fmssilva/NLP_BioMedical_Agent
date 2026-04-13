@@ -40,6 +40,9 @@
 \usepackage{hyperref}           % clickable links in PDF
 \usepackage{fancyhdr}           % custom headers/footers
 
+%% Allow line-breaks inside \texttt{} to prevent margin overflow
+\usepackage[htt]{hyphenat}
+
 
 %% ---------------------------------------------------------------
 %%  3.  SECTION SPACING  (tighter than llncs defaults)
@@ -55,6 +58,16 @@
   {3\p@  \@plus  1\p@ \@minus  1\p@}%
   {\normalfont\normalsize\bfseries\boldmath
    \rightskip=\z@ \@plus 8em\pretolerance=10000}}
+%%  Subsubsection: displayed heading (newline after), bold.
+\renewcommand\subsubsection{\@startsection{subsubsection}{3}{\z@}%
+  {-8\p@ \@plus -3\p@ \@minus -1\p@}%  space before
+  {2\p@  \@plus  1\p@}%                 positive = displayed (newline after)
+  {\normalfont\normalsize\bfseries}}
+%%  Paragraph: run-in heading (inline), italic+bold, followed by colon.
+\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
+  {-6\p@ \@plus -2\p@ \@minus -1\p@}%  space before
+  {-1em}%                                negative = run-in (inline)
+  {\normalfont\normalsize\bfseries\itshape}}
 \makeatother
 
 
@@ -111,11 +124,15 @@
 \title{BioMedical Natural Language Agents:\texorpdfstring{\\}{:} A Search and Generation Pipeline for TREC BioGen}
 \titlerunning{BioMedical NL Agents: Search \& Generation for TREC BioGen}
 
-\author{Francisco Silva}
+\author{Francisco Silva\inst{1} \and
+        R\'uben Silva\inst{1} \and
+        Rog\'erio Soares\inst{1}}
 
 \institute{%
-  Department of Computer Science, NOVA University Lisbon\\
-  \email{fc.silva@campus.fct.unl.pt}
+  NOVA School of Science and Technology, NOVA University Lisbon\\
+  \email{\{fmso.silva, raro.silva, rbm.soares\}@campus.fct.unl.pt}\\[4pt]
+  \textit{Natural Language Processing and Search} (2025/26)\\
+  Profs.\ Jo\~ao Magalh\~aes, David Semedo
 }
 
 \maketitle

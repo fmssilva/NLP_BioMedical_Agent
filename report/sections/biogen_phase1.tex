@@ -11,230 +11,167 @@
 
 % ── 2a.1  CORPUS ──────────────────────────────────────────────────────────────
 \subsubsection{Corpus}
-\begin{itemize}
-  \item \textbf{Source:} \texttt{filtered\_pubmed\_abstracts.txt} — JSONL, one
-        document per line; fields: \texttt{id} (PMID string), \texttt{contents}
-        (title + abstract concatenated).
-  \item \textbf{Size:} 4{,}194 PubMed abstracts; parsed via \texttt{json.loads()}
-        per line (not \texttt{json.load()} — file is not a JSON array).
-  \item \textbf{Document length:} mean=150 words, median=142, min=12, max=964.
-        High variance ($\sigma \approx 100$~words) motivates length normalisation
-        in BM25 and LM-Dirichlet.
-  \item \textbf{Indexing unit:} concatenated title+abstract as-is; no splitting,
-        no preprocessing beyond lowercase tokenisation at query time.
-\end{itemize}
+The collection comprises 4{,}194 PubMed abstracts with a mean length of
+150~words (median 142, range 12--964).  The high variance
+($\sigma \approx 100$~words) across documents is relevant for retrieval
+design: it motivates explicit length normalisation in BM25 (parameter~$b$)
+and Dirichlet smoothing (parameter~$\mu$).
 
 % ── 2a.2  TOPICS ──────────────────────────────────────────────────────────────
 \subsubsection{Topics}
-\begin{itemize}
-  \item \textbf{Source:} \texttt{BioGen2024topics.json} — 65 TREC BioGen 2024
-        topic entries, IDs 116--180.
-  \item \textbf{Fields per topic:} \texttt{topic} (short keyword, 2--6 words),
-        \texttt{question} (natural-language clinical question, 10--20 words),
-        \texttt{narrative} (retrieval context, 30--70 words).
-  \item \textbf{Query field ablation:} three formulations evaluated —
-        \texttt{topic}-only, \texttt{question}-only, and
-        \texttt{topic+question} concatenation.
-    \begin{itemize}
-      \item[--] \texttt{question} and \texttt{topic+question} are top performers;
-                \texttt{topic+question} locked as the final field
-                (NDCG@100=0.7833 vs 0.7174 for \texttt{question}).
-      \item[--] \texttt{narrative} alone is weakest (NDCG@100 = 0.6099 vs
-                0.7833 for \texttt{topic+question}).
-    \end{itemize}
-\end{itemize}
+We use the 65 TREC BioGen 2024 topics (IDs~116--180) distributed in
+\texttt{BioGen2024topics.json}.  Each topic contains three fields:
+a short keyword \texttt{topic} (2--6 words), a natural-language clinical
+\texttt{question} (10--20 words), and a longer \texttt{narrative} providing
+retrieval context (30--70 words).  As shown in the evaluation
+(§\ref{sec:eval_results}), the combination of \texttt{topic+question}
+yields the best retrieval performance; the \texttt{narrative} tends to
+introduce instructional phrasing that adds noise.
 
-% ── 2a.3  TRAIN/TEST SPLIT ────────────────────────────────────────────────────
-\subsubsection{Train/Test Split}
-\begin{itemize}
-  \item \textbf{Protocol:} fixed odd/even split on topic IDs — a professor-mandated
-        requirement for the course.
-    \begin{itemize}
-      \item[--] \textbf{Train:} 32 queries (odd IDs: 117, 119, \ldots, 179).
-      \item[--] \textbf{Test:} 33 queries (even IDs: 116, 118, \ldots, 180).
-    \end{itemize}
-  \item \textbf{Corpus not split:} all 4{,}194 documents are shared between
-        train and test — only the query set is partitioned.
-  \item \textbf{Train set used for:} query field selection, LM-JM $\lambda$ sweep,
-        BM25 $k_1/b$ sweep, LM-Dir $\mu$ sweep, encoder comparison (5-fold CV).
-  \item \textbf{Test set:} touched only once — final evaluation after all parameters
-        are locked.
-  \item \textbf{Saved to:} \texttt{results/splits/train\_queries.json},
-        \texttt{results/splits/test\_queries.json}.
-\end{itemize}
-
-% ── 2a.4  RELEVANCE JUDGEMENTS ────────────────────────────────────────────────
-\subsubsection{Relevance Judgements (qrels)}
-\begin{itemize}
-  \item \textbf{Source:} \texttt{biogen\_2024\_submissions.json} — automated
-        system submissions from BioGen 2024 with sentence-level citation
-        assessments (\texttt{evidence\_relation} field).
-  \item \textbf{Evidence relation value counts:}
-        supporting=10{,}240; neutral=1{,}412; not relevant=2{,}201;
-        contradicting=275; invalid citation=635.
-
-  \item \textbf{Binary qrels} (for MAP, MRR, P@k, R@k):
-    \begin{itemize}
-      \item[--] Rule: \texttt{evidence\_relation == "supporting"} $\Rightarrow$ score=1;
-                all others $\Rightarrow$ score=0.
-      \item[--] 65/65 topics have $\geq$1 relevant document.
-      \item[--] Mean relevant docs/topic = 46.1 (range: 8--88).
-      \item[--] Total relevant pairs: 2{,}999 (topic, PMID) pairs across 65 topics.
-    \end{itemize}
-
-  \item \textbf{Graded qrels} (for NDCG@100):
-    \begin{itemize}
-      \item[--] Rule: supporting$\to$5, neutral$\to$2, all others$\to$0.
-                Per (topic, PMID) pair: take the maximum score across all citations.
-      \item[--] Score distribution: 2{,}999 pairs at score=5; 218 pairs at score=2.
-      \item[--] Total graded pairs: 3{,}217; mean relevant docs/topic = 49.5.
-    \end{itemize}
-
-  \item \textbf{Quality note:} citation-based from automated systems, not
-        human assessors. Mean 46.1 relevant docs/topic is far above standard
-        TREC (3--15). MAP/recall denominators are inflated; not directly comparable
-        to public TREC benchmarks.
-
-  \item \textbf{Out-of-corpus PMIDs:} PMID 37711029 (topic 141) absent from
-        the filtered corpus — excluded with a logged warning.
-        11 additional PMIDs in neutral-only citations are also excluded.
-\end{itemize}
+% ── 2a.3  GROUND TRUTH ─────────────────────────────────────────────────────────
+\subsubsection{Ground Truth}
+Relevance judgements are derived from the file
+\texttt{biogen\_2024\_\allowbreak submissions\allowbreak .json},
+which contains automated
+BioGen~2024 system submissions annotated with sentence-level citation
+assessments (the \texttt{evidence\_relation} field).
+We construct two relevance scales — \emph{binary}
+(supporting\,=\,1, else\,=\,0) and \emph{graded}
+(supporting\,=\,5, neutral\,=\,2, else\,=\,0) — to support
+different evaluation metrics.  Full construction details and the
+train/test split protocol appear in §\ref{sec:eval_setup}.
 
 % ── 2a.5  INDEX DESIGN ────────────────────────────────────────────────────────
 \subsubsection{Index Design}
-\begin{itemize}
-  \item \textbf{Server:} OpenSearch at \texttt{api.novasearch.org:443},
-        shared course instance; index name = \texttt{usernlp03}.
-  \item \textbf{One index, multiple similarity fields} — not one index per strategy.
-        Shards=4, replicas=0, \texttt{refresh\_interval=-1} during indexing.
-  \item \textbf{Three custom similarity plugins registered at index creation:}
-    \begin{itemize}
-      \item[--] \texttt{lmjm\_01}: LMJelinekMercer $\lambda$=0.1
-      \item[--] \texttt{lmjm\_07}: LMJelinekMercer $\lambda$=0.7 (baseline field)
-      \item[--] \texttt{lmdir}: LMDirichlet $\mu$=2{,}000 (default baseline)
-    \end{itemize}
-  \item \textbf{Six index fields:}
-    \begin{itemize}
-      \item[--] \texttt{doc\_id} — keyword (PMID, exact match)
-      \item[--] \texttt{contents} — text, standard analyser, BM25 similarity
-      \item[--] \texttt{contents\_lmjm\_01} — text, standard, LMJelinekMercer $\lambda$=0.1
-      \item[--] \texttt{contents\_lmjm\_07} — text, standard, LMJelinekMercer $\lambda$=0.7 (baseline)
-      \item[--] \texttt{contents\_lmjm\_065} — text, standard, LMJelinekMercer $\lambda$=0.65 (tuning winner)
-      \item[--] \texttt{contents\_lmdir} — text, standard, LMDirichlet $\mu$=2{,}000
-      \item[--] \texttt{embedding} — knn\_vector, dim=768, HNSW (inner product,
-                \texttt{ef\_construction}=256, M=48)
-    \end{itemize}
-  \item \textbf{Analyser choice:} \texttt{standard} (tokenise + lowercase) over
-        \texttt{english} (Porter stemming) — stemming mangles biomedical terms
-        (e.g.\ \emph{hepatitis} $\to$ \emph{hepat}).
-  \item \textbf{KNN similarity:} \texttt{innerproduct} with L2-normalised vectors
-        $\Rightarrow$ inner product $\equiv$ cosine similarity; no per-query
-        renormalisation overhead.
-  \item \textbf{Tuning sweep fields added later:} e.g.\ \texttt{contents\_lmdir\_75},
-        \texttt{contents\_bm25\_k15\_b10} — created by the tuning pipeline without
-        modifying the base index structure.
-  \item \textbf{Idempotent creation:} \texttt{create\_index()} checks
-        \texttt{indices.exists()} first — never deletes or overwrites.
-\end{itemize}
 
-% ── 2a.6  DENSE ENCODER ───────────────────────────────────────────────────────
-\subsubsection{Dense Encoder}
-\begin{itemize}
-  \item \textbf{Baseline:} \texttt{msmarco-distilbert-base-v2} — DistilBERT
-        fine-tuned on 8.8M MS MARCO (web) passage pairs; 768-dim output.
-  \item \textbf{Encoding:} mean pooling over all token embeddings, L2-normalised
-        via \texttt{F.normalize(p=2, dim=1)}.
-  \item \textbf{Corpus encoding:} 4{,}194 docs in $\approx$3~min on CPU
-        (batch=32); saved to \texttt{results/embeddings/msmarco.npy} (12.3~MB).
-  \item \textbf{Improved encoder (tuning):} \texttt{ncbi/MedCPT-Query-Encoder}
-        + \texttt{ncbi/MedCPT-Article-Encoder}~\cite{medcpt2023} — asymmetric, trained on 23M
-        PubMed search click-through pairs.
-    \begin{itemize}
-      \item[--] Exact domain match: PubMed query $\to$ abstract, same as our task.
-      \item[--] Train CV NDCG@100: $+$0.0837 over msmarco (0.7448$\to$0.8273).
-      \item[--] Test NDCG@100 improvement: $+$0.0501 (0.7576$\to$0.8077).
-      \item[--] New index field \texttt{embedding\_medcpt} (768-dim) added without
-                rebuilding the base index.
-    \end{itemize}
-  \item \textbf{multi-qa-mpnet-base-cos-v1} also evaluated: train CV NDCG@100=0.8236
-        vs MedCPT=0.8273 (gap of 0.0037). multi-qa wins MAP (0.6435) and P@10
-        (0.7719) on train but loses NDCG@100 — MedCPT locked as primary encoder.
-\end{itemize}
+All documents are stored in a single OpenSearch index
+(\texttt{usernlp03}), hosted on the shared course instance at
+\texttt{api.nova\allowbreak search.org:443}~\cite{opensearch},
+with 4~shards, 0~replicas,
+and refresh disabled during bulk ingestion.
+Rather than maintaining one index per retrieval strategy, we create
+\emph{one field per parameter configuration} inside this single index.
+OpenSearch computes BM25 and language-model scores at index time based on
+each field's similarity setting, so every configuration is pre-computed and
+available instantly at query time with no on-the-fly recomputation.
 
-% ── 2a.7  RETRIEVAL STRATEGIES ────────────────────────────────────────────────
+The index is built in two passes.  The \textbf{baseline pass} creates the
+initial fields used for retrieval demos and field ablation:
+\texttt{doc\_id} (keyword, PMID),
+\texttt{contents\_bm25\_\allowbreak k12\_b075} (BM25 $k_1$=1.2, $b$=0.75),
+\texttt{contents\_lmjm\_07} (LM-JM $\lambda$=0.7),
+\texttt{contents\_lmdir\_2000} (LM-Dir $\mu$=2{,}000), and
+\texttt{embedding\_msmarco} (768-dim HNSW vector).
+The \textbf{tuning pass} then extends the live index — via a
+close\,/\,add-similarities\,/\,reopen cycle — with the full parameter grid:
+24~BM25 fields ($k_1 \times b$), 7~LM-JM fields, 9~LM-Dir fields, and
+4~KNN embedding fields (one per encoder), totalling roughly 45~fields.
+Field names follow a programmatic convention
+(\texttt{contents\_bm25\_k\{k1\}\_\allowbreak b\{b\}},
+\texttt{contents\_lmjm\_\allowbreak\{$\lambda$\}}, etc.)\ generated by
+\texttt{index\_builder.py}, and the lifecycle method
+\texttt{create\_or\_\allowbreak update\_index()} diffs live fields against the
+requested set so that additions are idempotent.
+
+We use the \texttt{standard} analyser (tokenise + lowercase) rather than the
+\texttt{english} analyser, because Porter stemming tends to mangle biomedical
+terms (e.g.\ \emph{hepatitis} $\to$ \emph{hepat}).
+For KNN fields, vectors are L2-normalised before indexing, so
+\texttt{innerproduct} is equivalent to cosine similarity; HNSW parameters
+are \texttt{ef\_construction}$\,=\,$256, $M\!=\!48$,
+\texttt{ef\_search}$\,=\,$100.
+
+% ── 2a.6  RETRIEVAL STRATEGIES ────────────────────────────────────────────────
 \subsubsection{Retrieval Strategies}
-\begin{itemize}
-  \item \textbf{Top-k = 100 documents} per query for all strategies.
-  \item \textbf{Uniform interface:} all retrievers implement
-        \texttt{BaseRetriever.search(query, size=100) $\to$ list[(pmid, score)]}.
 
-  \item \textbf{BM25} — \texttt{match} on \texttt{contents} field~\cite{robertson1994bm25};
-        default: $k_1$=1.2, $b$=0.75. Tuned: $k_1$=1.5, $b$=1.0.
-    \begin{itemize}
-      \item[--] $b$=1.0 (full length normalisation) outperforms $b$=0.75
-                across all $k_1$ values — abstracts vary widely (12--964 words).
-      \item[--] $k_1$ change has minimal impact; term saturation is not the
-                bottleneck for biomedical multi-term queries.
-    \end{itemize}
+We implement five retrieval strategies covering both sparse (lexical) and
+dense (neural) paradigms.  All share a uniform interface —
+\texttt{BaseRetriever.search(query, size=100)} — and return the top-100
+documents per query as a ranked list of (PMID, score) pairs.
 
-  \item \textbf{LM Jelinek-Mercer} — \texttt{match} on
-        \texttt{contents\_lmjm\_065} ($\lambda$=0.65, extended grid winner;
-        $\Delta$NDCG=+0.001 over original $\lambda$=0.7).
-    \begin{itemize}
-      \item[--] $\lambda$=0.65 gives more weight to the document's own term
-                distribution — correct for 10--20 word clinical queries.
-      \item[--] $\lambda$=0.9 is nearly tied ($\Delta$NDCG=0.0001, within noise);
-                $\lambda$=0.65 locked (extended grid winner).
-    \end{itemize}
+\paragraph{Sparse retrievers:}
+\textbf{BM25}~\cite{robertson1994bm25} is a probabilistic term-weighting
+model that issues a \texttt{match} query against the appropriate
+\texttt{contents\_bm25\_\allowbreak k\{k1\}\_b\{b\}} field.
+The default parameters ($k_1$=1.2, $b$=0.75) are tuned via grid search in
+§\ref{sec:eval_results}, where $k_1$ controls term-frequency saturation and
+$b$ governs length normalisation.
+\textbf{LM~Jelinek-Mercer} smooths the document language model via linear
+interpolation with the collection model, controlled by a single
+parameter~$\lambda$ (default 0.7).
+\textbf{LM~Dirichlet}~\cite{lm_retrieval} applies Dirichlet-prior smoothing,
+where $\mu$ determines how much probability mass is shifted to the collection
+model (default 2{,}000).
 
-  \item \textbf{LM Dirichlet} — \texttt{match} on \texttt{contents\_lmdir\_100}
-        ($\mu$=100, CV winner; baseline used $\mu$=2{,}000).
-    \begin{itemize}
-      \item[--] Default $\mu$=2{,}000 $\approx$13$\times$ mean doc length
-                (150~words) — over-smooths every abstract.
-      \item[--] $\mu$=100 is the CV winner (NDCG@100=0.7706); $\Delta$=+0.0196
-                vs default $\mu$=2000 (0.7510).
-      \item[--] Sweep: NDCG@100 peaks at $\mu$=100, monotone decrease toward
-                $\mu$=2{,}000.
-    \end{itemize}
+\paragraph{Dense retriever:}
+\textbf{KNN} performs HNSW approximate nearest-neighbour search on a
+768-di\-men\-sion\-al embedding field, using cosine similarity via the
+inner product of L2-normalised vectors
+(\texttt{ef\_search}\,=\,100).
+Four encoder families are compared in §\ref{sec:eval_results}; the
+winning model is used for the final \texttt{embedding\_medcpt} field.
 
-  \item \textbf{Dense KNN} — HNSW approximate nearest-neighbour on
-        \texttt{embedding\_medcpt} field; query encoded with MedCPT
-        Query-Encoder.
-    \begin{itemize}
-      \item[--] Cosine similarity via inner product of L2-normalised vectors.
-      \item[--] \texttt{ef\_search}=100 at index level; brute-force exact cosine
-                used during encoder comparison (no HNSW approximation error).
-    \end{itemize}
+\paragraph{Hybrid fusion:}
+\textbf{Reciprocal Rank Fusion (RRF)}~\cite{rrf2009} merges two ranked lists
+in a score-agnostic manner:
+$\text{RRF}(d)=\sum_r \frac{1}{k + \text{rank}_r(d)}$, with $k$\,=\,60
+(Cormack default).  We fuse BM25 with KNN\,(MedCPT), chosen because
+lexical and semantic signals are largely complementary.
 
-  \item \textbf{RRF Fusion}~\cite{rrf2009} — Reciprocal Rank Fusion of BM25 + KNN (MedCPT),
-        $k$=60 (Cormack default; locked for Phase~2 backbone).
-    \begin{itemize}
-      \item[--] Score: $\text{RRF}(d) = \sum_r \frac{1}{k + \text{rank}_r(d)}$.
-      \item[--] BM25 and KNN(MedCPT) Jaccard overlap at top-10: 0.13--0.16 —
-                very low, confirming complementary signals.
-      \item[--] RRF pair sweep (5-fold CV): best lexical pair was BM25+LM-Dir
-                $k$=90 (NDCG@100=0.7907); no RRF pair beats KNN(MedCPT)
-                solo (0.8273) on the train CV leaderboard.
-      \item[--] Test-set RRF (BM25+MedCPT, $k$=60) achieves NDCG@100=0.8245 — the
-                highest test-set score overall, with strong R@100=0.8924. Best
-                solo model is KNN(MedCPT) with NDCG@100=0.8077.
-    \end{itemize}
-\end{itemize}
+% ── 2a.7  DENSE ENCODER ───────────────────────────────────────────────────────
+\subsubsection{Dense Encoder Details}
 
-% ── 2a.8  IMPLEMENTATION NOTES ────────────────────────────────────────────────
-\subsubsection{Implementation Notes}
-\begin{itemize}
-  \item \textbf{Source layout:} \texttt{src/data/}, \texttt{src/indexing/},
-        \texttt{src/retrieval/}, \texttt{src/embeddings/},
-        \texttt{src/evaluation/}, \texttt{src/tuning/}.
-  \item \textbf{Run files:} \texttt{results/phase1/\{strategy\}\_run.json} —
-        format \texttt{\{topic\_id: [(pmid, score), \ldots]\}}; one file per
-        strategy, baseline and tuned variants.
-  \item \textbf{Bulk indexing:} 4{,}194 docs in $\approx$21~s using
-        \texttt{opensearchpy.helpers.bulk()}, batch=100; idempotent count-check
-        before re-indexing.
-  \item \textbf{Colab compatibility:} all notebooks detect \texttt{IN\_COLAB}
-        and adapt paths and credential loading (Colab Secrets vs.\ local
-        \texttt{.env}).
-\end{itemize}
+Our baseline encoder is \texttt{msmarco-\allowbreak distilbert-\allowbreak base-v2}~\cite{reimers2019sbert},
+a DistilBERT model fine-tuned on 8.8M MS~MARCO web-passage pairs that
+produces 768-dimensional embeddings.  Hidden states are pooled and then
+L2-normalised via \texttt{F.normalize(p=2, dim=1)} before indexing.
+
+\paragraph{Pooling-mode comparison:}
+Before comparing encoder families, we evaluate three pooling modes —
+\emph{mean}, \emph{mean-no-special} (excluding \texttt{[CLS]}/\texttt{[SEP]}),
+and \emph{CLS} (first token only) — for every encoder using brute-force exact
+cosine in Python (no HNSW approximation) to isolate model quality from
+index-level noise.  Table~\ref{tab:pooling} summarises the results: CLS
+pooling works best for MedCPT and SPECTER-2, while mean-no-special is
+preferable for msmarco and multi-qa.  Each encoder's best pooling mode is
+locked for all subsequent experiments.
+
+\begin{table}[htbp]
+\centering
+\caption{Pooling-mode comparison — NDCG@100 (brute-force cosine, 32 train
+         topics).  Bold = best mode per encoder.  CLS wins for MedCPT and
+         SPECTER-2; mean-no-special wins for msmarco and multi-qa.}
+\label{tab:pooling}
+\begin{tabular}{lccc}
+  \hline
+  \textbf{Encoder} & \textbf{mean} & \textbf{mean-no-special} & \textbf{CLS} \\
+  \hline
+  msmarco   & 0.7411 & \textbf{0.7439} & 0.5763 \\
+  MedCPT    & 0.8203 & 0.8159          & \textbf{0.8374} \\
+  multi-qa  & 0.8219 & \textbf{0.8228} & 0.7836 \\
+  SPECTER-2 & 0.7258 & 0.7157          & \textbf{0.8269} \\
+  \hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{images/pooling_mode_sweep.png}
+  \caption{Pooling-mode comparison — NDCG@100 for each encoder $\times$
+           pooling mode (brute-force exact cosine on 32 train topics).
+           MedCPT + CLS yields the highest single score (0.8374).}
+  \label{fig:pooling}
+\end{figure}
+
+\paragraph{Domain-matched encoder:}
+The primary dense model is
+\texttt{ncbi/\allowbreak MedCPT-\allowbreak Query-\allowbreak Encoder}
++
+\texttt{ncbi/\allowbreak MedCPT-\allowbreak Article-\allowbreak Encoder}~\cite{medcpt2023},
+an \emph{asymmetric} dual-encoder trained on 23M PubMed search
+click-through pairs.  The query encoder (max-length 64, CLS pooling) handles
+queries, while the article encoder (max-length 512, CLS pooling) processes
+documents — an exact domain match for our PubMed retrieval task.
+We also evaluate \texttt{multi-qa-mpnet-\allowbreak base-cos-v1}~\cite{reimers2019sbert}
+and \texttt{allenai/\allowbreak specter2}; full comparison results appear in
+§\ref{sec:eval_results}.
