@@ -1,0 +1,18 @@
+{
+  "retriever": "KNN(MedCPT)",
+  "top_k_docs": 10,
+  "query_field": "topic+question",
+  "cross_encoder": "ncbi/MedCPT-Cross-Encoder",
+  "top_n_sentences": 3,
+  "max_pmids_per_sentence": 3,
+  "generator": "gpt-4o",
+  "max_answer_words": 250,
+  "temperature": 0.1,
+  "judge_model": "gpt-4o",
+  "test_n_answers": 33,
+  "pct_required_test": 18.6,
+  "pct_supported_test": 27.3,
+  "pct_partially_supported_test": 69.7,
+  "pct_unsupported_test": 3.0,
+  "pct_constraints_met_test": 100.0
+}

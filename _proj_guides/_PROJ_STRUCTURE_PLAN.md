@@ -109,12 +109,12 @@ NLP_Biomedical_Agent/
 │   │   ├── context_builder.py      [new-P2] see details below
 │   │   ├── answer_generator.py     [DONE] see details below
 │   │   ├── answer_parser.py        [DONE] see details below
-│   │   └── __generation_test.py    [new-P2] see details below
+│   │   └── __generation_test.py    [DONE] 83 tests — all passing
 │   │
-│   ├── judging/                    # Phase 2: LLM-as-a-judge evaluation
-│   │   ├── __init__.py             [new-P2]
-│   │   ├── llm_judge.py            [new-P2] see details below
-│   │   └── __judging_test.py       [new-P2] see details below
+│   ├── judging/                    # Phase 2: LLM-as-a-judge evaluation [DONE]
+│   │   ├── __init__.py             [DONE]
+│   │   ├── llm_judge.py            [DONE] see details below
+│   │   └── __judging_test.py       [DONE] 72 tests — all passing
 │   │
 │   ├── analysis/                   # Phase 2: transformer internals visualisation [DONE]
 │   │   ├── __init__.py             [DONE]
@@ -141,11 +141,12 @@ NLP_Biomedical_Agent/
 │   │   └── figures/
 │   ├── phase2/                     [new-P2] all Phase 2 outputs
 │   │   ├── train_answers.json          [DONE] RAG answers for training queries
-│   │   ├── test_answers.json           RAG answers for test queries
-│   │   ├── sentence_alignment_train.json
-│   │   ├── sentence_alignment_test.json
-│   │   ├── entailment_train.json
-│   │   ├── entailment_test.json
+│   │   ├── test_answers.json           [DONE] RAG answers for test queries
+│   │   ├── sentence_alignment_train.json  [DONE]
+│   │   ├── sentence_alignment_test.json   [DONE]
+│   │   ├── entailment_train.json          [DONE]
+│   │   ├── entailment_test.json           [DONE]
+│   │   ├── p2_locked_config.json          [DONE]
 │   │   └── figures/
 │   └── phase3/                     [new-P3]
 │

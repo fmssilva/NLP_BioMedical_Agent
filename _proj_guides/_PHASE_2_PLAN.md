@@ -461,7 +461,7 @@ Explain that we start with the guide's exact prompt and then calibrate on 5–10
 > Priority: **9** — The guide explicitly requires this calibration step. Skipping it is a grading risk.
 
 ---
-## 4.5 Bulk Evaluation — Sentence Alignment (Training Set)
+## 4.5 Bulk Evaluation — Sentence Alignment (Training Set) [DONE]
 
 **[MARKDOWN]** Run sentence alignment judge on all selected sentences across all training queries. Note: this hits the GPT-4o API — estimated cost and time shown.
 
@@ -474,7 +474,7 @@ Explain that we start with the guide's exact prompt and then calibrate on 5–10
 > Priority: **9** — Required by the guide. Core evaluation metric.
 
 ---
-## 4.6 Bulk Evaluation — Answer Entailment (Training Set)
+## 4.6 Bulk Evaluation — Answer Entailment (Training Set) [DONE]
 
 **[CODE]**
 - Run `judge_answer_entailment` for all generated answers in train set.
@@ -485,7 +485,7 @@ Explain that we start with the guide's exact prompt and then calibrate on 5–10
 > Priority: **9** — Required by the guide. Core evaluation metric.
 
 ---
-## 4.7 Correlation: Retrieval Quality → Answer Quality
+## 4.7 Correlation: Retrieval Quality → Answer Quality [DONE]
 
 **[MARKDOWN]** Do queries where Phase 1 retrieved better results (higher nDCG) also get better Phase 2 entailment scores? This tests whether better retrieval actually leads to better generation.
 
@@ -499,7 +499,7 @@ Explain that we start with the guide's exact prompt and then calibrate on 5–10
 > Priority: **8** — Ties the entire project together (Phase 1 retrieval quality → Phase 2 generation quality). One of the most intellectually interesting results.
 
 ---
-## 4.8 Error Analysis — Failure Cases
+## 4.8 Error Analysis — Failure Cases [DONE]
 
 **[MARKDOWN]** Qualitative deep-dive into failures. Select:
 - 2 answers with entailment score 0 (hallucinated/unsupported).
@@ -518,11 +518,11 @@ For each, display the question, reference sentences, generated answer, and the j
 ---
 
 ---
-# **5. Test Set Evaluation & Summary**
+# **5. Test Set Evaluation & Summary** [DONE]
 *Re-run the full pipeline on the test queries and report final results.*
 
 ---
-## 5.1 Test Set Generation
+## 5.1 Test Set Generation [DONE]
 
 **[MARKDOWN]** We now run the pipeline on the held-out test set (even-ID topics). Remind the reader: we do NOT tune anything based on test set results. Everything was fixed on the training set.
 
@@ -535,7 +535,7 @@ For each, display the question, reference sentences, generated answer, and the j
 > Priority: **10** — Final deliverable. Required.
 
 ---
-## 5.2 Final Results Tables
+## 5.2 Final Results Tables [DONE]
 
 **[MARKDOWN]** Present Phase 2 results in the format expected for the report.
 
@@ -552,7 +552,7 @@ For each, display the question, reference sentences, generated answer, and the j
 > Priority: **10** — Core result reporting. This goes directly into the report.
 
 ---
-## 5.3 Comparison: vLLM vs GPT-4o Generator (Optional)
+## 5.3 Comparison: vLLM vs GPT-4o Generator (Optional) [DONE — skipped, vLLM unavailable]
 
 **[MARKDOWN]** *(Only if time/API budget allows — mark as optional.)*
 Since we use GPT-4o as the primary generator, run a small sample (5-10 test queries) with vLLM as the generator instead. Compare answer entailment labels: does the frontier model produce more grounded answers than the local model?
@@ -563,7 +563,7 @@ Since we use GPT-4o as the primary generator, run a small sample (5-10 test quer
 > Priority: **4** — Nice to have if budget allows. Shows awareness of generator quality impact.
 
 ---
-## 5.4 Phase 2 Summary & Handoff to Phase 3
+## 5.4 Phase 2 Summary & Handoff to Phase 3 [DONE]
 
 **[MARKDOWN]** Structured summary of Phase 2:
 - What we built: cross-encoder re-ranker → RAG generator → LLM judge evaluator.

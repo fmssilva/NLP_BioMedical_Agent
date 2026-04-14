@@ -591,7 +591,7 @@ Write a concise biomedical answer (max 250 words). Cite each sentence with [PMID
 
 ---
 
-### STEP 8 — Bulk Judging (Sections 4.5 & 4.6) + Analysis (4.7 & 4.8)
+### STEP 8 [DONE] — Bulk Judging (Sections 4.5 & 4.6) + Analysis (4.7 & 4.8)
 
 **What to build:**
 - Bulk judging helper inline in notebook (same design as `run_bulk_rag_pipeline`).
@@ -646,7 +646,7 @@ Write a concise biomedical answer (max 250 words). Cite each sentence with [PMID
 
 ---
 
-### STEP 9 — Section 5: Test Set + Final Tables
+### STEP 9 — Section 5: Test Set + Final Tables [DONE]
 
 **What to build:**
 - No new src files — reuse everything from Steps 1-8.
