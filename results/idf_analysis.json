@@ -1,0 +1,68 @@
+{
+  "hard": [
+    {
+      "topic_id": "156",
+      "AP": 0.1718520168728765,
+      "mean_idf": 3.289059042083599,
+      "query": "golfer's elbow"
+    },
+    {
+      "topic_id": "140",
+      "AP": 0.24121554282176152,
+      "mean_idf": 3.281962458056858,
+      "query": "spontaneous hand fractures"
+    },
+    {
+      "topic_id": "138",
+      "AP": 0.3421035655641567,
+      "mean_idf": 3.6332428353434763,
+      "query": "Sudafed Afrin interaction"
+    },
+    {
+      "topic_id": "152",
+      "AP": 0.3638103922109513,
+      "mean_idf": 3.0252701623496763,
+      "query": "quitting amlodipine"
+    },
+    {
+      "topic_id": "142",
+      "AP": 0.4087528544695438,
+      "mean_idf": 2.6564774344650353,
+      "query": "Medications that raise blood pressure"
+    }
+  ],
+  "easy": [
+    {
+      "topic_id": "180",
+      "AP": 0.8142692051810194,
+      "mean_idf": 2.3937612109226345,
+      "query": "adverse muscle events due to statins"
+    },
+    {
+      "topic_id": "172",
+      "AP": 0.815098655537968,
+      "mean_idf": 2.649198540758058,
+      "query": "ankle fractures in adults"
+    },
+    {
+      "topic_id": "174",
+      "AP": 0.8398101457309742,
+      "mean_idf": 2.338616555002528,
+      "query": "metabolic bone disease in inflammatory bowel disease"
+    },
+    {
+      "topic_id": "132",
+      "AP": 0.8678668744359452,
+      "mean_idf": 2.720138676854588,
+      "query": "low vitamin D"
+    },
+    {
+      "topic_id": "170",
+      "AP": 0.938367508433626,
+      "mean_idf": 2.824767635181756,
+      "query": "isoniazid hepatotoxicity"
+    }
+  ],
+  "mean_idf_hard": 3.177202386459729,
+  "mean_idf_easy": 2.5852965237439127
+}

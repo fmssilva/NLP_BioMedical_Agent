@@ -331,28 +331,24 @@ should be structured in way that on each phase you add one more component and
 evaluation to the overall system:
 
 
-1.​ Introduction
-
-
-2.​ BioGen NL Agent
-
-a.​ Data parsing, indexing and search​ Phase 1
-b.​ LLM Augmented Generation​ Phase 2
-c.​ LLM Agentic patterns​ Phase 3
-
-3.​ Evaluation
-
-
-a.​ Experimental Setup: Datasets, Metrics and Protocols
-
-b.​ Results and Discussion
-
-4.​ Conclusion
-
-
-a.​ Achievements
-
-b.​ Limitations
+15 - pages max (exclude references??). 
+1.​ Cover + Introduction                                1 pages
+2.​ BioGen NL Agent                                     3 pages
+  a.​ Data parsing, indexing and search​ Phase 1           1 pages
+  b.​ LLM Augmented Generation​ Phase 2                    1 pages
+  c.​ LLM Agentic patterns​ Phase 3                        1 pages  
+3.​ Evaluation                                          9 pages
+  a.​ Experimental Setup: Datasets, Metrics and Protocols 3 pages
+      phase 1                                              1 page
+      phase 2                                              1 page 
+      phase 3                                              1 page
+  b.​ Results and Discussion                              6 pages
+      phase 1                                              2 pages
+      phase 2                                              2 pages
+      phase 3                                              2 pages
+4.​ Conclusion                                          2 pages    
+  a.​ Achievements
+  b.​ Limitations
 
 
 ## **Resources and References**
