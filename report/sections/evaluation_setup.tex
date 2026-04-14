@@ -9,17 +9,18 @@
 \subsection{Experimental Setup: Datasets, Metrics and Protocols}
 \label{sec:eval_setup}
 
-% ── 3a.1  DATASET ─────────────────────────────────────────────────────────────
-\subsubsection{Dataset}
+% ══════════════════════════════════════════════════════════════════════════════
+% 3.1.1  PHASE 1
+% ══════════════════════════════════════════════════════════════════════════════
+\subsubsection{Phase 1: Retrieval Evaluation}
+
+\paragraph{Datasets and Relevance Judgements:}
 Our evaluation uses the TREC BioGen 2024 collection: 4{,}194 PubMed abstracts
 and 65 biomedical topics (IDs~116--180).  Full corpus and topic details are
 described in §\ref{sec:phase1}.
 
-% ── 3a.2  RELEVANCE JUDGEMENTS ────────────────────────────────────────────────
-\subsubsection{Relevance Judgements (qrels)}
-
 Relevance judgements are derived from
-\texttt{biogen\_2024\_\allowbreak submissions.json} — automated BioGen~2024 system
+\texttt{biogen\_2024\_\allowbreak submissions.json} --- automated BioGen~2024 system
 submissions with sentence-level citation assessments
 (\texttt{evidence\_relation} field).
 Evidence relation value counts:
@@ -44,13 +45,11 @@ Additionally, PMID~37711029 (topic~141) is absent from the filtered corpus
 and is excluded with a logged warning; 11~further PMIDs appearing only in
 neutral citations are also excluded.
 
-% ── 3a.3  SPLIT PROTOCOL ──────────────────────────────────────────────────────
-\subsubsection{Split Protocol}
-
+\paragraph{Split Protocol and Cross-Validation:}
 We adopt a fixed odd/even split on topic IDs (as mandated by the course
 instructor): 32~train queries (odd IDs: 117, 119, \ldots, 179) and
 33~test queries (even IDs: 116, 118, \ldots, 180).  The corpus is shared
-across both sets — only the query set is partitioned.
+across both sets --- only the query set is partitioned.
 
 Hyperparameter selection follows a strict sequential protocol:
 (1)~query field ablation using BM25 on the train set to lock the query field;
@@ -66,52 +65,58 @@ The 5-fold cross-validation over 32~train queries assigns roughly
 26~queries to training and 6~to validation in each fold.
 The primary selection criterion throughout is mean NDCG@100 across folds.
 
-% ── 3a.4  METRICS ─────────────────────────────────────────────────────────────
-\subsubsection{Metrics}
-
+\paragraph{Metrics:}
 All metrics are implemented from scratch
 in \texttt{src/\allowbreak evaluation/\allowbreak metrics\allowbreak .py}
-(plain Python + NumPy, no external IR library —
+(plain Python + NumPy, no external IR library ---
 following the Lab03 protocol).
 
 \begin{itemize}
-  \item \textbf{P@10} (Precision at rank 10, binary qrels) — of the 10
-        documents shown on the first results page, how many are actually
-        relevant?  This is the metric most directly aligned with clinical
-        use: a high P@10 means the practitioner sees mostly useful
-        references without manual filtering.
+  \item \textbf{P@10} (Precision at rank~10, binary qrels) ---
+        of the first 10 retrieved documents, how many are truly relevant?
+        A high P@10 means the practitioner sees mostly useful references
+        on the first results page without manual filtering.
 
-  \item \textbf{R@100} (Recall at rank 100, binary qrels) — of all the
-        truly relevant documents in the collection, how many did we manage
-        to retrieve in the top~100?  This is critical for Phase~2: any
-        relevant study \emph{not} retrieved here is permanently lost to the
-        generation stage.
+  \item \textbf{R@100} (Recall at rank~100, binary qrels) ---
+        of all relevant documents in the collection, how many appear in
+        the top~100?  This is critical for Phase~2: any relevant study
+        \emph{not} retrieved here is permanently lost to the generation
+        stage.
+
+  \item \textbf{PR Curves} --- 11-point interpolated precision--recall
+        curves averaged across test queries (Lab03 pattern).  They
+        visualise the precision--recall trade-off across rank thresholds;
+        the area under each curve approximates Average Precision.
 
   \item \textbf{AP\,/\,MAP} (Average Precision / Mean Average Precision,
-        binary qrels) — $\text{AP}=\frac{1}{|\mathcal{R}|}\sum_{k=1}^{n}
+        binary qrels) --- $\text{AP}=\frac{1}{|\mathcal{R}|}\sum_{k=1}^{n}
         P(k)\cdot\text{rel}(k)$, averaged across queries to obtain MAP.
-        Intuitively, AP rewards systems that place relevant documents
-        \emph{high} in the ranking: returning all relevant documents is not
-        enough — they must appear near the top.
+        AP rewards systems that rank relevant documents near the top,
+        not merely retrieving them somewhere in the list.
 
-  \item \textbf{MRR} (Mean Reciprocal Rank, binary qrels) —
+  \item \textbf{MRR} (Mean Reciprocal Rank, binary qrels) ---
         $\text{MRR}=\frac{1}{|Q|}\sum_{q}\frac{1}{\text{rank}_q^{(1)}}$.
         How quickly does the user find the \emph{first} useful result?
-        MRR\,=\,1.0 means the very first document is always relevant;
-        lower values indicate the user must scroll past non-relevant results.
+        MRR\,=\,1.0 means the top-ranked document is always relevant.
 
   \item \textbf{NDCG@100} (Normalised Discounted Cumulative Gain, graded
-        qrels) — the \textbf{primary TREC BioGen metric}:
+        qrels) --- the \textbf{primary TREC BioGen metric}:
         $\text{DCG}=\sum_{i=1}^{100}\frac{2^{\text{rel}_i}-1}{\log_2(i+2)}$;\;
         $\text{NDCG}=\text{DCG}/\text{IDCG}$.
-        Unlike the binary metrics above, NDCG distinguishes \emph{how}
-        relevant a document is (supporting\,=\,5 vs.\ neutral\,=\,2) and
-        penalises highly relevant documents placed at low ranks.  It
-        therefore captures both relevance grade and rank position, making
-        it the most comprehensive single number for model selection
-        throughout this work.
-
-  \item \textbf{PR Curves} — 11-point interpolated precision--recall curves
-        averaged across test queries (Lab03 pattern); the area under each
-        curve approximates AP.
+        Unlike binary metrics, NDCG distinguishes \emph{how} relevant a
+        document is (supporting\,=\,5 vs.\ neutral\,=\,2) and penalises
+        highly relevant documents placed at low ranks, making it the most
+        comprehensive single number for model selection.
 \end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════════
+% 3.1.2  PHASE 2
+% ══════════════════════════════════════════════════════════════════════════════
+\subsubsection{Phase 2: Generation Evaluation}
+To be developed in future work.
+
+% ══════════════════════════════════════════════════════════════════════════════
+% 3.1.3  PHASE 3
+% ══════════════════════════════════════════════════════════════════════════════
+\subsubsection{Phase 3: Agentic Evaluation}
+To be developed in future work.

@@ -6,72 +6,48 @@
 \label{sec:conclusions}
 
 % ── 4a  ACHIEVEMENTS ──────────────────────────────────────────────────────────
-\subsection{Phase 1 Achievements}
+\subsection{Achievements}
 \label{sec:achievements}
 
-We delivered a complete, modular IR pipeline on schedule (deadline Apr~13),
-covering corpus loading, indexing, query building, retrieval, evaluation,
-and result serialisation — all Colab-compatible.%
+\paragraph{Phase 1 --- Retrieval:}
+We delivered a complete, modular IR pipeline covering corpus loading,
+indexing, query building, retrieval, evaluation, and result serialisation ---
+all Colab-compatible.%
 \footnote{Phase~1 notebook:
 \url{https://colab.research.google.com/drive/1UvDhFXYEzZxse6gknDyBSUaq0EAHZkFV?usp=sharing}.}
-Five retrieval strategies were implemented and compared: BM25,
-LM-Jelinek-Mercer, LM-Dirichlet, dense KNN, and RRF fusion, following a
-disciplined tuning protocol — query field ablation first, then 5-fold
-cross-validation per strategy, with the test set touched exactly once.
+Five retrieval strategies (BM25, LM-JM, LM-Dirichlet, dense KNN, RRF)
+were implemented and compared following a strict tuning protocol with the
+test set touched exactly once.
+The most impactful design choice was selecting MedCPT
+($\Delta$NDCG@100=+0.0501 on test, +0.0825 on CV versus the msmarco
+baseline).
+The locked Phase~2 backbone, KNN\,(MedCPT), achieves NDCG@100=0.8077,
+MAP=0.6143, and R@100=0.8933 on 33 test topics; RRF (BM25+MedCPT)
+pushes test NDCG@100 to 0.8245.
+The R@100 of 0.8933 ensures over 89\% of relevant documents are available
+for Phase~2 generation.
 
-The most impactful single design choice was selecting the MedCPT encoder,
-which yielded $\Delta$NDCG@100 = +0.0501 on the test set
-($0.7576 \to 0.8077$ versus the msmarco baseline; +0.0825 on 5-fold CV).
-The locked Phase~2 strategy, KNN\,(MedCPT), reaches
-NDCG@100 = 0.8077, MAP = 0.6143, and R@100 = 0.8933 on 33 test
-topics; RRF (BM25+MedCPT, $k = 60$) pushes NDCG@100 to 0.8245 on the
-same set.
-The high Recall@100 of 0.8933 ensures a strong evidence pool for Phase~2
-generation.
+\paragraph{Phase 2 --- LLM Augmented Generation:} (To be updated.)
 
-Several architectural decisions contributed to these results.
-Our multi-field index design materialises every parameter configuration as a
-dedicated OpenSearch field, enabling instant replay and side-by-side
-comparison without re-encoding.
-A systematic pooling-mode analysis (CLS vs.\ mean vs.\ mean-no-special)
-established that architecture-appropriate pooling is critical before
-comparing encoder families.
-The exhaustive RRF sweep over 9~strategy pairs and 3~$k$ values confirmed
-that sparse+dense fusion (BM25+KNN) is consistently the best pairing,
-exploiting complementary lexical and semantic signals.
-Finally, dual qrel scales (binary and graded) allowed evaluation with both
-precision-oriented (MAP) and gain-discounted (NDCG) metrics, while the
-robust odd/even topic split ensured no information leakage between selection
-and final evaluation.
+\paragraph{Phase 3 --- LLM Agentic Patterns:} (To be updated.)
 
 % ── 4b  LIMITATIONS ───────────────────────────────────────────────────────────
 \subsection{Limitations}
 \label{sec:limitations}
 
-Several limitations should be noted.  The relevance judgements are derived
-from automated BioGen submissions rather than human assessors, so systematic
-biases are possible.  Moreover, the mean of 46.1 relevant documents per topic
-is $3\text{--}15\times$ above standard TREC collections, which inflates MAP
-and recall figures and makes them not directly comparable to published
-benchmarks.  The 33-topic test set is relatively small, and the
-fixed odd/even split offers no cross-validation guarantee that topic
-difficulty is perfectly balanced.  A handful of relevant PMIDs referenced in
-the qrels are absent from the 4{,}194-abstract corpus, creating an
-irreducible recall ceiling.
+\paragraph{Phase 1 --- Retrieval:}
+Relevance judgements are citation-based from automated BioGen submissions,
+not human assessors, so systematic biases are possible.
+The mean of 46.1 relevant documents per topic
+($3\text{--}15\times$ above standard TREC tasks) inflates MAP and recall
+figures.
+The 33-topic test set is small, the fixed odd/even split offers no guarantee
+of balanced topic difficulty, and a handful of qrel PMIDs are absent from
+the corpus, creating an irreducible recall ceiling.
+Finally, production KNN retrieval relies on HNSW indexing, which introduces
+some recall loss compared to the brute-force cosine used during encoder
+selection.
 
-Additionally, while the encoder comparison used brute-force cosine to control
-for approximation noise, production KNN retrieval still relies on HNSW
-indexing, which introduces some recall loss.
+\paragraph{Phase 2 --- LLM Augmented Generation:} (To be updated.)
 
-\subsection*{Future Work}
-
-Phase~2 will add cross-encoder reranking with the
-MedCPT-Cross-Encoder, LLM-augmented generation via vLLM with automatic
-citation grounding, and LLM-as-judge evaluation.
-Phase~3 will introduce a ReAct-style agentic loop — with Planner, Explorer,
-Aggregator, and Report Writer roles — for multi-step reasoning over the
-retrieval backbone.
-Beyond the project scope, promising directions include learned sparse
-retrieval (SPLADE) and late interaction (ColBERT) for higher recall at lower
-rank cutoffs, as well as obtaining human relevance assessments to validate
-the automated qrel quality.
+\paragraph{Phase 3 --- LLM Agentic Patterns:} (To be updated.)
