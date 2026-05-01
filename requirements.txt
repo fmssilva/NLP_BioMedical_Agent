@@ -1,8 +1,10 @@
 opensearch-py
 sentence-transformers
 transformers
+--extra-index-url https://download.pytorch.org/whl/cu126
 torch
-python-dotenv
+torchvision
+torchaudio
 tqdm
 numpy
 matplotlib
@@ -10,3 +12,13 @@ scikit-learn
 pyyaml
 openai
 bertviz
+pandas
+seaborn
+pip
+setuptools
+wheel
+spacy
+scispacy
+https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_sm-0.5.4.tar.gz
+nltk
+ipywidgets
