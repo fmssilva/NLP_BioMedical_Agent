@@ -1,0 +1,233 @@
+[
+  {
+    "id": 116,
+    "topic": "natural treatments for sleep apnea",
+    "question": "Are there ways to prevent sleep apnea or treat it naturally?",
+    "narrative": "The patient is looking for natural remedies to prevent and treat sleep apnea.",
+    "answer": "The provided evidence does not contain information regarding the prevention of sleep apnea or natural treatment methods."
+  },
+  {
+    "id": 118,
+    "topic": "cornea injury healing",
+    "question": "How long does a minor cornea injury take to heal without medical attention?",
+    "narrative": "A patient believes his cornea injury does not need medical attention. The patient expects the injury to heal on its own, but asking for the time at which the eye should heal.",
+    "answer": "Minor corneal abrasions typically heal within 48 hours without complications or eye damage [PMID 25140844]. Additionally, superficial corneal wounds may recover within days [PMID 31436261]."
+  },
+  {
+    "id": 120,
+    "topic": "causes of facial numbness",
+    "question": "What causes left sided facial numbness?",
+    "narrative": "This patient is feeling the left side of his face is numb. He did not have any injuries or procedures, and feels well otherwise. He is concerned this might be a sign of a problem and wants to know if the causes need medical attention.",
+    "answer": "The provided evidence describes several patients experiencing left-sided facial numbness, but it does not specify the underlying causes for these symptoms [PMID 16264857, PMID 24777086, PMID 1067543]. Examples of patients presenting with this symptom include a 37-year-old Brazilian man [PMID 16264857], a patient with sudden onset numbness and right upper limb weakness [PMID 24777086], and a patient with mandibular nerve neuropathy affecting the left side of the chin and lower lip [PMID 1067543]."
+  },
+  {
+    "id": 122,
+    "topic": "t wave abnormality",
+    "question": "What is a t wave abnormality?",
+    "narrative": "This patient had an ECG test. She was told some t wave abnormalities were seen in the test. She is looking for a definition of t wave abnormalities and an explanation of their meaning.",
+    "answer": "T-wave abnormalities are electrocardiographic changes with multiple and varied causes [PMID 24276094]. These abnormalities are gaining significance in electrocardiogram diagnostics [PMID 21140289]. In childhood, T-wave abnormalities are associated with various forms of cardiovascular disease (CVD), including those that predispose individuals to sudden cardiac death [PMID 29538783]. One specific phenomenon involving transient T-wave abnormalities is cardiac memory, which occurs during normal sinus rhythm following a period of altered ventricular depolarization; in this state, the T-wave vector (T-wave inversion) shares the same direction as the vector of the previously altered QRS complex [PMID 18709008]."
+  },
+  {
+    "id": 124,
+    "topic": "cad without angina",
+    "question": "What does cad without angina mean?",
+    "narrative": "This patient was diagnosed with coronary heart disease without angina pectoris. He would like to know more about this condition.",
+    "answer": "CAD without angina refers to the presence of angiographically significant coronary artery disease in patients who do not experience angina pectoris [PMID 3984868]. The absence of angina does not reliably exclude angiographically significant CAD [PMID 3984868]. The prevalence of this condition varies across studies: one report found that 25% of patients without angina had angiographically significant CAD, with a 70% prevalence of 1-vessel disease among them [PMID 3984868], while another reported that 12% of patients without angina had significant CAD [PMID 3381731]. In another study, 5% of patients without angina pectoris showed significant coronary artery stenosis [PMID 3617869]. Gender differences have been noted, as 11% of male patients showed significant CAD without typical symptoms, whereas no female patients without typical angina pectoris had significant coronary artery stenosis [PMID 3617869]."
+  },
+  {
+    "id": 126,
+    "topic": "nondisjunction",
+    "question": "What is nondisjunction and what causes it?",
+    "narrative": "A family that is considering IVF has heard about nondisjunction. They would like to know more about non-disjunction and its causes.",
+    "answer": "Nondisjunction is a chromosome distribution error that occurs during mitosis where both copies of a duplicated chromosome are deposited into one daughter cell and none into the other [PMID 16915240]. This process results in the gain or loss of a single chromosome, leading to near-diploid aneuploidy [PMID 16915240]. However, other evidence suggests that nondisjunction results in the formation of tetraploid cells rather than aneuploid cells [PMID 16222248, PMID 16915240].\n\nNondisjunction is a multifactorial trait [PMID 18369452]. It is likely caused by multiple risk factors, including some that are age-dependent and others that are age-independent, as well as factors that act globally or are chromosome-specific [PMID 16192701]. In human cells, it is tightly coupled to the regulation of cytokinesis [PMID 16222248]. Additionally, mutations in spindle proteins or cell cycle regulators can perturb chromosome segregation [PMID 16222248]. Regarding meiotic nondisjunction, evidence suggests at least two different causes: one that occurs in both sexes and in both meiotic divisions, and another specifically limited to the first meiotic division in the mother [PMID 155033]."
+  },
+  {
+    "id": 128,
+    "topic": "cbd effect on liver enzymes",
+    "question": "How does CBD effect liver enzymes?",
+    "narrative": "This patient would like to know if cannabidiol (CBD) may damage his liver and if the liver enzyme tests will show the effect of CBD on the liver.",
+    "answer": "The effect of CBD on liver enzymes is a subject of controversy [PMID 35631293]. Some evidence suggests that healthy adults consuming CBD may experience elevations in serum ALT consistent with drug-induced liver injury [PMID 33022751]. Additionally, CBD-mediated toxicity may involve the disruption of liver enzyme functions [PMID 37088127]. Conversely, other data suggest that low-dose CBD probably does not represent a risk to normal liver function [PMID 35631293]. Regarding metabolism, CBD undergoes extensive oxidative metabolism in the liver [PMID 37197460]. While cytochromes P450 form the primary hydroxylated metabolites, cytosolic drug-metabolizing enzymes are also involved in generating major in vivo metabolites [PMID 37197460]."
+  },
+  {
+    "id": 130,
+    "topic": "pcos and oxidative stress",
+    "question": "Is pcos linked to oxidative stress?",
+    "narrative": "The patient with polycystic ovary syndrome has heard the condition is linked to oxidative stress. She would like to know how oxidative stress effects pcos.",
+    "answer": "Yes, polycystic ovary syndrome (PCOS) is linked to oxidative stress (OS) [PMID 37337194, PMID 36279177, PMID 31198521]. OS is recognized as playing a central role in the pathophysiology of PCOS [PMID 31198521]. There is a multifaceted clinical profile involving genetic, epigenetic, and environmental associations between OS and PCOS [PMID 36279177]. Additionally, literature from Western countries has reported increased levels of serum oxidative stress markers in women with PCOS [PMID 30568513]. OS is often present in PCOS alongside insulin resistance [PMID 31298704]. While PCOS is often accompanied by increased oxidative stress levels, it remains unclear if PCOS is causally related to OS, if OS increases the occurrence of PCOS, or which specific PCOS characteristics increase OS levels [PMID 37337194]."
+  },
+  {
+    "id": 132,
+    "topic": "low vitamin D",
+    "question": "What is the effect of low vitamin D?",
+    "narrative": "The patient diagnosed with vitamin D deficiency would like to know how the problem affects his health.",
+    "answer": "Low vitamin D status has been associated with an increased risk for various nonskeletal morbidities [PMID 20511052]. Additionally, low levels of serum 25-hydroxyvitamin D, described as vitamin D insufficiency, may be associated with other disease outcomes [PMID 21193656]. However, it remains to be determined whether all of these associations are causally related to low vitamin D status [PMID 20511052], and caution is advised as association does not prove causation [PMID 19491061]."
+  },
+  {
+    "id": 134,
+    "topic": "ibs symptoms and treatments",
+    "question": "What are the symptoms and treatments for IBS?",
+    "narrative": "The patient believes his symptoms may be related to irritable bowel syndrome (IBS). He would like to know more about the symptoms and treatment options.",
+    "answer": "Irritable bowel syndrome (IBS) involves a range of symptoms [PMID 31468816]. Treatment strategies include both pharmacologic and nonpharmacologic approaches [PMID 28541989]. Traditional symptom-based therapies target the relief of individual symptoms, though they may have limited efficacy in addressing the entire symptom complex [PMID 21350320, PMID 14502115]. \n\nPharmacological therapies include medications used to treat individual symptoms [PMID 14502115] and FDA-approved serotonergic therapeutics that target underlying causes to provide multisymptom relief by improving gastrointestinal function [PMID 17597676]. Management may also involve interventions used by nurses to ameliorate underlying contributing factors [PMID 31468816]."
+  },
+  {
+    "id": 136,
+    "topic": "treatment for elbow pain",
+    "question": "What can be done for severe elbow pain?",
+    "narrative": "The patient's elbow started hurting after playing tennis. The pain was not relieved by Aleve. The patient would like to know what else could be done.",
+    "answer": "For patients with severe elbow pain and joint destruction caused by rheumatoid arthritis, elbow joint replacement is performed [PMID 1408372]. Additionally, interposition arthroplasty can relieve severe pain and provide a functional elbow when the appropriate surgical indication is present [PMID 21501790]."
+  },
+  {
+    "id": 138,
+    "topic": "Sudafed Afrin interaction",
+    "question": "Can I use Sudafed after using Afrin for nasal congestion?",
+    "narrative": "Afrin did not relieve nasal congestion in the patient who is now wondering if taking Sudafed will help. The patient would like to know if it is safe to take the two medications together.",
+    "answer": "The provided evidence does not contain information regarding the safety or efficacy of using Sudafed after using Afrin."
+  },
+  {
+    "id": 140,
+    "topic": "spontaneous hand fractures",
+    "question": "What can cause acute fractures in both of your hands when there hasn\u2019t been injury or trauma?",
+    "narrative": "A patient felt pain in his hands after vigorous exercise. In the ER, he was told he has fractures. He is wondering what could have caused the fractures: he did not have any injuries during exercise.",
+    "answer": "I am sorry, but the provided evidence does not contain information regarding the causes of acute fractures in both hands that occur without injury or trauma."
+  },
+  {
+    "id": 142,
+    "topic": "Medications that raise blood pressure",
+    "question": "What medication has a drug interaction with high blood pressure?",
+    "narrative": "The hypertensive patient is concerned that some of the medications he is taking may elevate his blood pressure and interact with his antihypertensive medications.",
+    "answer": "Non-steroidal anti-inflammatory drugs (NSAIDs) have drug interactions with antihypertensive medications [PMID 24042856]."
+  },
+  {
+    "id": 144,
+    "topic": "starting hypertension treatment",
+    "question": "When should I treat high blood pressure?",
+    "narrative": "The patient has high blood pressure, but otherwise is healthy and fit. She is wondering if she should talk to her doctor about treatment options.",
+    "answer": "Antihypertensive drug treatment should be initiated when systolic blood pressure is at least 140 mmHg or diastolic blood pressure is at least 90 mmHg in patients with grade 1 hypertension and low or moderate total cardiovascular risk [PMID 19381107]. For patients with diabetes and previous cardiovascular disease, treatment may be initiated even when blood pressure is in the high normal range [PMID 19381107]. Medication should be started if necessary to achieve target blood pressure levels, with treatment programs prepared according to risk stratification [PMID 20845760]. High blood pressure should be treated gradually [PMID 20148501]. If blood pressure is more than 20/10 mmHg above the goal, therapy should be initiated with two antihypertensive drugs having complementary mechanisms of action [PMID 29046992, PMID 31521481]."
+  },
+  {
+    "id": 146,
+    "topic": "Management of PTSD",
+    "question": "How can PTSD be treated/managed?",
+    "narrative": "A war veteran is seeking help for PTSD.",
+    "answer": "PTSD can be managed through pharmacological approaches [PMID 28813308, PMID 22544623]. Pharmacists, provided they have proper education and training, can play an integral role in managing the diverse array of drug therapy options available for the condition [PMID 22544623]. Management of PTSD also occurs within the primary care setting [PMID 17713306]."
+  },
+  {
+    "id": 148,
+    "topic": "easy bruising",
+    "question": "Why do I bruise so easily?",
+    "narrative": "A 59-year-old woman noticed multiple spontaneous bruises in the past several weeks. She would like to know what causes this bruising.",
+    "answer": "Easy bruising may be caused by medical conditions that predispose an individual to easy bleeding or bruising [PMID 23530171, PMID 36120799]. In children, it is necessary to determine if easy bruising is caused by a hemorrhagic disorder [PMID 840808]. Additionally, clinicians evaluate for underlying medical predispositions to bruising when distinguishing between accidental and inflicted bruises [PMID 24426797]."
+  },
+  {
+    "id": 150,
+    "topic": "effectiveness of physical therapy for lumbar disc herniation",
+    "question": "What are the effectiveness of physical therapy interventions in reducing pain in patients with lumbar disc herniation?",
+    "narrative": "A 52-year-old with lumbar disc herniation was referred to physical therapy. He would like to know if this treatment will effectively reduce his pain.",
+    "answer": "The beneficial effect of physical exercise in treating patients with intervertebral lumbar discopathy is generally known [PMID 17514181]. However, it remains unclear whether physical therapy is effective for people with lumbar disc herniation and associated radiculopathy [PMID 27765714]."
+  },
+  {
+    "id": 152,
+    "topic": "quitting amlodipine",
+    "question": "Is it possible to quit taking amlodipine after taking for many years?",
+    "narrative": "The patient has been taking amlodipine for many years. She would like to know if it is safe to stop taking it.",
+    "answer": "Evidence indicates that it is possible to cease amlodipine treatment; for example, one patient remained well and without symptoms after two years of amlodipine cessation [PMID 36304383]. Amlodipine's long half-life and slow onset of action may help avoid withdrawal effects, such as the precipitation of myocardial infarction or exacerbation of angina, which are seen with beta-blockers [PMID 11850645]. Additionally, there appeared to be no significant problems associated with its withdrawal, nor evidence of tolerance development over a 3-month period [PMID 9156956]."
+  },
+  {
+    "id": 154,
+    "topic": "breathing techniques for managing shortness of breath",
+    "question": "How to breathe when you are short of breath?",
+    "narrative": "The patient is constantly out of breath and wants to improve breathing using breathing techniques and exercise.",
+    "answer": "Regulated breathing reduces breathlessness and facilitates ventilation [PMID 36249235]. Breathing training is recommended as a first-line treatment for adults with dysfunctional breathing, regardless of whether asthma is present [PMID 24347088]. Different breathing control techniques can be used by clinicians in primary care to support patients [PMID 18686398]. Even slight improvements in breathing control provide significant benefits for patients, as living with breathlessness can considerably impact quality of life [PMID 18686398]. Specific protocols that can be evaluated for efficacy include the short breathing technique (SBT) and the long duration breathing technique (LBDT) [PMID 36249235]."
+  },
+  {
+    "id": 156,
+    "topic": "golfer's elbow",
+    "question": "What are some non-surgical treatments recommended for Golfer's elbow?",
+    "narrative": "A family doctor is looking for the best conservative treatments for his patient.",
+    "answer": "The provided evidence does not specify any non-surgical treatments recommended for golfer's elbow."
+  },
+  {
+    "id": 158,
+    "topic": "klippel trenaunay",
+    "question": "What genetic mutation is most commonly associated with the development of Klippel-Trenaunay syndrome (KTS)?",
+    "narrative": "A healthcare provider looks for specific genetic testing for a patient with a capillary stain.",
+    "answer": "Klippel-Trenaunay syndrome (KTS) has been demonstrated as a mosaic activating PIK3CA mutations related overgrowth syndrome [PMID 35154272]. Consequently, KTS has recently been included in the group of PIK3CA-related overgrowth spectrum (PROS) disorders [PMID 37628420]."
+  },
+  {
+    "id": 160,
+    "topic": "toxic hepatitis",
+    "question": "What is the recommended first-line treatment for liver damage caused by an overdose of acetaminophen?",
+    "narrative": "The emergency physician is looking for treatments for a patient admitted with acetaminophen overdose.",
+    "answer": "N-acetylcysteine is the standard of care for acetaminophen toxicity [PMID 31753245]. It is the most effective drug to prevent the progression of acetaminophen hepatotoxicity to liver failure [PMID 19169150]. Additionally, acetylcysteine reduces mortality and prevents or minimizes acetaminophen-induced hepatotoxicity [PMID 21126198]."
+  },
+  {
+    "id": 162,
+    "topic": "wilsons disease",
+    "question": "What is the typical age range for the diagnosis of Wilson's disease?",
+    "narrative": "A 62-year-old patient has signs of liver and brain damage. Her PCP wonders if Wilson's disease can be diagnosed at this age.",
+    "answer": "Wilson's disease is widely recognized as occurring clinically in children, adolescents, and young adults [PMID 8229372]. It usually has its onset in childhood, adolescence, or early adulthood [PMID 1152537]. The disorder occurs predominantly in children, adolescents, and young adults, and rarely in patients over 35 years [PMID 15524050]. However, clinical symptoms and age at onset are highly variable [PMID 17433323]. Diagnosis should be considered for individuals in their fourth and fifth decades of life who present with unexplained liver disease, as cases have been made in individuals greater than 40 years of age [PMID 8229372]."
+  },
+  {
+    "id": 164,
+    "topic": "vocal cord paralysis",
+    "question": "What is a potential complication associated with bilateral vocal cord paralysis?",
+    "narrative": "A laryngologist conducts a comprehensive assessment of a singer considering the patient's quantity-of-life and perspective.",
+    "answer": "Potential complications associated with bilateral vocal cord paralysis include airway compromise [PMID 24663247] and obstruction of the airway, which can lead to disastrous respiratory problems [PMID 21286470]. Additionally, the condition often results in airway distress [PMID 8154768]."
+  },
+  {
+    "id": 166,
+    "topic": "multiple myeloma",
+    "question": "What are the different tests and procedures used to diagnose multiple myeloma?",
+    "narrative": "The provider is looking for the best workup for the patient with suspected multiple myeloma.",
+    "answer": "The diagnosis of multiple myeloma involves the use of laboratory techniques, radiologic imaging, and advanced imaging techniques [PMID 17870425]. These tools are utilized to confirm the diagnosis and can also serve prognostic purposes and assist in patient follow-up [PMID 15921017, PMID 30171031]. Diagnosis is guided by detailed International Myeloma Working Group (IMWG) criteria [PMID 25626297] and recommendations from the European Myeloma Network regarding which tools to use and when [PMID 30171031]. Evaluation may include both conventional diagnostics and newer tools for diagnosis and monitoring [PMID 16762540, PMID 23714534]."
+  },
+  {
+    "id": 168,
+    "topic": "intermittent explosive disorder",
+    "question": "What treatment options are suggested for managing intermittent explosive disorder?",
+    "narrative": "The provider is looking for the best treatment for intermittent explosive disorder.",
+    "answer": "Treatment options for intermittent explosive disorder include pharmacological treatment, which remains empirical and utilizes drugs based on current knowledge of the neurobiology of aggression [PMID 7625240]. Additionally, cognitive-behavioral group therapy customized for the disorder has been utilized and evaluated for efficacy [PMID 29590263]. However, there are currently no evidence-based treatment recommendations for impulse control disorders, including intermittent explosive disorder [PMID 35305343]."
+  },
+  {
+    "id": 170,
+    "topic": "isoniazid hepatotoxicity",
+    "question": "What is the prevalence of INH hepatitis during anti-tubercular therapy for latent tuberculosis, and what is the associated mortality rate for these cases?",
+    "narrative": "The provider is concerned with hepatotoxicity due to isoniazid monotherapy for tuberculosis and wants to know the mortality rate associated with liver damage due to INH.",
+    "answer": "Severe hepatitis occurs in up to 1% of patients receiving isoniazid (INH) for latent Mycobacterium tuberculosis [PMID 35345710]. The provided evidence does not specify a mortality rate for these cases [PMID 35345710, PMID 16002924, PMID 26377643, PMID 25786447, PMID 37070117, PMID 17995946, PMID 29783726, PMID 16163632]."
+  },
+  {
+    "id": 172,
+    "topic": "ankle fractures in adults",
+    "question": "What are the major indications for operative fixation of an ankle fracture?",
+    "narrative": "The provider is considering referring a patient with an ankle fracture to an orthopedic surgeon, and needs information on the major indications for surgery.",
+    "answer": "The provided evidence does not specify the major indications for operative fixation of ankle fractures, noting instead that operative indications and reported outcomes vary widely in the literature [PMID 35097351]."
+  },
+  {
+    "id": 174,
+    "topic": "metabolic bone disease in inflammatory bowel disease",
+    "question": "What are the risk factors for osteoporosis and fracture in patients with inflammatory bowel disease (IBD)?",
+    "narrative": "The provider is looking for management of IBD that includes prevention of osteopenia, osteoporosis, and bone fractures.",
+    "answer": "Risk factors for osteoporosis and fracture in patients with inflammatory bowel disease (IBD) include general risk factors such as age, gender, and BMI [PMID 30566793]. Additionally, IBD-specific risk factors include intestinal inflammation, low nutrient status, and the use of corticosteroids [PMID 30566793]."
+  },
+  {
+    "id": 176,
+    "topic": "rectal microbiota for prophylaxis of C. diff.",
+    "question": "What is the appropriate dosing volume for fecal microbiota rectal suspension used as Clostridioides difficile infection prophylaxis in adults?",
+    "narrative": "Hospital staff are looking for information on dosing of fecal microbiota rectal suspension to prevent Clostridioides difficile infection.",
+    "answer": "Based on the provided evidence, there is no information regarding the appropriate dosing volume for fecal microbiota rectal suspension used as Clostridioides difficile infection prophylaxis in adults."
+  },
+  {
+    "id": 178,
+    "topic": "preparticipation physical evaluation",
+    "question": "What is the most sensitive and specific component of the Preparticipation Physical Evaluation (PPE) for detecting conditions that might preclude participation in sports?",
+    "narrative": "The athlete\u2019s primary care provider is looking for information on PPE in children and adolescents to keep the athlete safe and healthy while participating in sports.",
+    "answer": "The provided evidence does not specify which component of the Preparticipation Physical Evaluation (PPE) is the most sensitive and specific for detecting conditions that might preclude sports participation."
+  },
+  {
+    "id": 180,
+    "topic": "adverse muscle events due to statins",
+    "question": "What factors contribute to a higher risk of statin-associated adverse muscle events and what specific statins are recommended for patients at increased risk due to concurrent therapy with a strong inhibitor of CYP3A4?",
+    "narrative": "A PCP is looking for the most appropriate statin for a patient that is on diltiazem, specifically to avoid adverse muscle events.",
+    "answer": "Factors contributing to a higher risk of statin-associated muscle adverse events include dose-dependent toxicity associated with all statins [PMID 24835295] and drug interactions [PMID 24528687].\n\nThe provided evidence does not specify which particular statins are recommended for patients taking a strong inhibitor of CYP3A4."
+  }
+]
