@@ -27,7 +27,8 @@ pushes test NDCG@100 to 0.8245.
 The R@100 of 0.8933 ensures over 89\% of relevant documents are available
 for Phase~2 generation.
 
-\paragraph{Phase 2 --- LLM Augmented Generation:} (To be updated.)
+\paragraph{Phase 2 --- LLM Augmented Generation:}
+We delivered a thorough analysis on how positional embeddings, contextual embeddings and self-attention as input embeddings go through the different layers, and we presented a complete analysis of a wide range of models (40) that use the results of the previous phase to develop a Retrieval-Augmented Generation system capable of obtaining good results, and ready to be used in Phase 3.
 
 \paragraph{Phase 3 --- LLM Agentic Patterns:} (To be updated.)
 
@@ -48,6 +49,7 @@ Finally, production KNN retrieval relies on HNSW indexing, which introduces
 some recall loss compared to the brute-force cosine used during encoder
 selection.
 
-\paragraph{Phase 2 --- LLM Augmented Generation:} (To be updated.)
+\paragraph{Phase 2 --- LLM Augmented Generation:}
+As mentioned in the previous phase (and confirmed in this one), the fixed odd/even split did not guarantee a balanced topic difficulty. Since there was no apparent error in our training/testing pipeline, we attribute the difference between train and topic sets results to the previously mentioned reasons.
 
 \paragraph{Phase 3 --- LLM Agentic Patterns:} (To be updated.)

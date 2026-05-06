@@ -135,6 +135,10 @@ RRF (BM25+MedCPT, $k$=60) achieves the highest \emph{test-set} NDCG@100=0.8245.
   \label{fig:ap_boxplot}
 \end{figure}
 
+% ══════════════════════════════════════════════════════════════════════════════
+% APPENDIX E — Phase 2 Images
+% ══════════════════════════════════════════════════════════════════════════════
+
 \begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{images/pr_curves.png}
@@ -143,3 +147,47 @@ RRF (BM25+MedCPT, $k$=60) achieves the highest \emph{test-set} NDCG@100=0.8245.
            KNN (MedCPT) dominate across the full recall range.}
   \label{fig:pr_curves}
 \end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{images/model_view.png}
+  \caption{(Nearly) all layers' multi-head self-attentions visualization}
+  \label{fig:model_view}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{images/nltk_sciscpacy_ex2.png}
+  \caption{Additional NLTK vs. scispaCy example}
+  \label{fig:nltk_sciscpacy_ex2}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{images/full_sentence_segmentation_best_unlimited.png}
+  \caption{Sentence segmentation results for all queries for best unlimited model}
+  \label{fig:full_sentence_segmentation_best_unlimited}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{images/full_answer_entailment_best_unlimited.png}
+  \caption{Answer entailment results for all queries for best unlimited model}
+  \label{fig:full_answer_entailment_best_unlimited}
+\end{figure}
+
+\begin{table}[htbp]
+\centering
+\caption{Gemma 4 31B IT Testing Parameters}
+\label{tab:gemma_parameters}
+\begin{tabular}{cccc}
+  \hline
+  \textbf{Property} & \textbf{Values} \\
+  \hline
+  Temperature & [0.0, 0.3, 0.7, 1.0] \\
+  Top-p & [1.0, 0.9, 0.7] \\
+  Prompt & [Context \& Topic \& Question \& Narrative, Context \& Question] \\
+  Max sentences per doc & [3, unlimited] \\
+  \hline
+\end{tabular}
+\end{table}

@@ -113,10 +113,36 @@ following the Lab03 protocol).
 % 3.1.2  PHASE 2
 % ══════════════════════════════════════════════════════════════════════════════
 \subsubsection{Phase 2: Generation Evaluation}
-To be developed in future work.
+\paragraph{Datasets and Protocol}
+Phase 2 retained the same biomedical dataset and train/test split protocol described in Phase 1. A cross-validation procedure was not adopted due to the computational overhead to querying an external (Gemma 4 and ChatGPT-4o) endpoint; this cost, when multiplied across all the parameters search space we tested, rendered it unfeasible in this phase. To preserve reproducibility, we applied seeding across all runs.
+A total of 40 different evaluations were evaluated by manipulating the parameters in Table~\ref{tab:gemma_parameters}:
+
+The provided API does not expose a decoding method parameter, so greedy decoding was simulated by setting the temperature to 0.0, which deterministically selects the highest probability token at each step (argmax token is always picked), and top-p to 1.0, which effectively disables nucleus sampling. and temperature to 0.0. The remaining configurations explore different balances of determinism with diversity/creativity.
+
+\paragraph{Metrics:}
+Since the generative system may produce clinically correct information that does not exactly match the reference corpus, two LLM-Judge metrics were implemented to assess output quality (in addition to manual analysis):
+
+\begin{itemize}
+  \item \textbf{Sentence Alignment} (sentence-level relevance classification) ---
+        from a query and all its answer sentences, how necessary to the final answer is each one?
+        Each sentence is evaluated independently with respect to the question; the judge assigns one of four labels:
+        \begin{itemize}
+            \item \textbf{Required} - the sentence is essential to guarantee a complete and clinically adequate answer.
+            \item \textbf{Borderline} - the sentence is relevant/good to know; not strictly required.
+            \item \textbf{Unnecessary} - the sentence does not meaningfully contribute to the final answer, may introduce information overload, contain trivial information, or include irrelevant recommendations.
+            \item \textbf{Inappropriate} - the sentence may be misleading, unsupported, or potentially harmful to the patient.
+        \end{itemize}
+
+  \item \textbf{Answer Entailment} (answer-level factual support assessment) ---
+        from a query, how well supported by the set of reference sentences is the answer? Each answer is evaluated independently with respect to the question; the judge assigns one of three labels:
+        \begin{itemize}
+            \item \textbf{Supported} - the answer is fully supported by the reference sentences.
+            \item \textbf{Partially Supported} - the answer is relevant (or possibly good to know) and partially supported by the reference sentences.
+            \item \textbf{Unsupported} - the answer is not supported by the reference sentences and may harm the patient.
+        \end{itemize}
+\end{itemize}
 
 % ══════════════════════════════════════════════════════════════════════════════
 % 3.1.3  PHASE 3
 % ══════════════════════════════════════════════════════════════════════════════
-\subsubsection{Phase 3: Agentic Evaluation}
-To be developed in future work.
+\subsubsection{Phase 3: Agentic Evaluation (to be developed in future work)}

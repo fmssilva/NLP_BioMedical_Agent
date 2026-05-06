@@ -28,7 +28,7 @@ and generation quality metrics such as citation accuracy.
 
 % ── PROJECT STRUCTURE ─────────────────────────────────────────────────────────
 This project is organised into three phases.
-\textbf{Phase~1} (the focus of this report) builds and evaluates a complete
+\textbf{Phase~1} builds and evaluates a complete
 IR pipeline: we index 4{,}194 PubMed abstracts in OpenSearch, implement and
 tune five retrieval strategies (BM25, LM-Jelinek-Mercer, LM-Dirichlet, dense
 KNN, and Reciprocal Rank Fusion), and evaluate against citation-derived
@@ -38,21 +38,13 @@ MAP\,=\,0.6143, R@100\,=\,0.8933} on 33 held-out test queries;
 RRF (BM25+MedCPT, $k$=60) reaches NDCG@100\,=\,0.8245.%
 \footnote{The full Phase~1 notebook is available at:
 \url{https://colab.research.google.com/drive/1UvDhFXYEzZxse6gknDyBSUaq0EAHZkFV?usp=sharing}.}
-\textbf{Phase~2} (upcoming) will add cross-encoder reranking of retrieved
-evidence, LLM-generated paragraph answers with per-sentence citations, and
-LLM-as-a-judge evaluation.
+\textbf{Phase~2} examines the positional embeddings, contextual embeddings, and self-attention as input embeddings go through different layers (with MedCPT Query Encoder and MedCPT Cross Encoder). On top of the Phase 1, it adds cross-encoder reranking of retrieved evidence, LLM-generated paragraph answers with per-sentence citations, and LLM-as-a-Judge evaluation using two different metrics: sentence alignment and answer entailment, aswell as manual analysis of results.
+Our best Phase~2 result is \textbf{Gemma 4 31B IT with temperature = 1.0, top-p = 0.7, and a tuned user prompt} on 33 held-out test queries.
+\footnote{The full Phase~2 was not developed using Google Colab; the full code can be visualized in the submission documents with title phase2.ipynb}
 \textbf{Phase~3} will introduce a ReAct-style agentic loop for multi-step
 biomedical synthesis.
 
 % ── CONTRIBUTIONS ─────────────────────────────────────────────────────────────
-\noindent
-\textbf{Contribution.}
-We set up a comprehensive fine-tuning and grid-search pipeline to identify the
-best retrieval models for biomedical evidence retrieval.  Each parameter
-configuration is materialised as a dedicated field in the OpenSearch index,
-enabling any downstream application to issue a query and receive the
-highest-quality ranked list of related PubMed abstracts for further analysis
-or generation.
 The implementation builds upon the laboratory exercises of the NLP\&S
 course~\cite{opensearch}, adapting their indexing, encoding, and evaluation
 patterns to the TREC BioGen domain.
@@ -62,5 +54,5 @@ patterns to the TREC BioGen domain.
 This report is organised as follows.
 Section~\ref{sec:biogen} describes the BioGen NL Agent pipeline across three phases.
 Section~\ref{sec:eval_setup} details the experimental setup (datasets, metrics, protocols).
-Section~\ref{sec:eval_results} presents Phase~1 results and discussion.
+Section~\ref{sec:eval_results} presents Phase~1 and Phase~2 results and discussion.
 Section~\ref{sec:conclusions} concludes and outlines future work.
