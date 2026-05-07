@@ -1,0 +1,226 @@
+[
+  {
+    "id": 117,
+    "topic": "runx2 mutations",
+    "question": "What will mutation in runx2 affect in the future?",
+    "narrative": "The patient is asking about the effects of mutations involving Runt-related transcription factor 2 (RUNX2) on development of the body and problems the mutations may cause in the future.",
+    "answer": "Mutations in the RUNX2 gene cause cleidocranial dysplasia (CCD), a genetic disorder that affects the development of teeth and bone [PMID 37500953]. To date, over 190 mutations in the RUNX2 gene have been reported in relation to CCD [PMID 29058294]. Specifically, C-terminal mutations in RUNX2 can lead to mislocalization, reduced expression, and aberrant transactivation of downstream genes, which contributes to compromised osteogenic potential [PMID 37500953]. Additionally, RUNX2 may have a potential role in osteosarcoma [PMID 21197465]."
+  },
+  {
+    "id": 119,
+    "topic": "Drug treatment for COPD stage 4",
+    "question": "What drug or combination of drugs is most popular for treating stage 4 COPD?",
+    "narrative": "This patient is looking for the most effective and popular medications for advanced Chronic obstructive pulmonary disease (COPD).",
+    "answer": "Current guidelines for the maintenance treatment of moderate to severe COPD recommend the use of inhaled long-acting bronchodilators, inhaled corticosteroids (ICSs), and their combinations [PMID 23243635]. Long-acting bronchodilator therapy is considered the cornerstone treatment for patients with COPD [PMID 29305841]. Specifically, combinations of bronchodilators from different pharmacological classes have demonstrated improved efficacy compared to monotherapy [PMID 29305841]. Combining different classes of drugs is viewed as an important step toward achieving optimal control for patients [PMID 21509737]. Inhaled pharmacologic therapy is the preferred route of administration for treating the condition [PMID 27799757]. However, determining which compound to prefer remains a challenge due to mechanistic differences between bronchodilator classes and the availability of various anti-inflammatory/bronchodilator fixed combinations [PMID 15902378]. Furthermore, because COPD is a heterogeneous disease with different phenotypes, a specific therapy may not be identified for every phenotype [PMID 23243635]. There is also a lack of solid evidence regarding the best administration method for triple combination products, specifically whether drugs should be delivered sequentially or concomitantly [PMID 23243635]."
+  },
+  {
+    "id": 121,
+    "topic": "lowering cortisol level",
+    "question": "How can I lower my cortisol level?",
+    "narrative": "An athlete found out her blood test had high cortisol levels. She knows this might have negative effect on her performance and health. She wants to lower her cortisol levels.",
+    "answer": "Based on the provided evidence, there are several interventions that can help lower cortisol levels:\n\n*   **Mindfulness and Meditation:** Mindfulness meditation is a method to relax the mind and decrease stress, which should decrease serum cortisol [PMID 23724462].\n*   **Yoga:** Yoga has been demonstrated to reduce parameters of stress, including cortisol levels [PMID 24049209].\n*   **Exercise:** In patients with depression, exercise reduces salivary morning cortisol levels [PMID 30815455].\n*   **Stress Management:** Cognitive-behavioral stress management (CBSM) has been repeatedly shown to effectively reduce cortisol responses to acute psychosocial stress [PMID 16330155]."
+  },
+  {
+    "id": 123,
+    "topic": "fbn1 mutation",
+    "question": "What is fbn1 mutation?",
+    "narrative": "A young woman who is planning to start a family has heard that one of her cousins had a mutation in the gene for fibrillin-1 (FBN1). She would like to know more about these mutations and the health problems that might be caused by the mutation.",
+    "answer": "Mutations in the fibrillin-1 (FBN1) gene cause Marfan syndrome (MFS), which is an autosomal dominant heritable disorder of connective tissue [PMID 30534251, PMID 12413333]. These mutations can result in multiple distinct pleiotropic disorders and are associated with a broad spectrum of phenotypes [PMID 30219651, PMID 12413333]. \n\nThousands of individual mutations in FBN1 have been identified, with some sources citing over 1,000 [PMID 27437668], over 1,700 [PMID 30534251], or more than 3,000 [PMID 30219651]. Due to this high number of mutations, genotype-phenotype correlations are difficult [PMID 27437668]. While regular molecular testing at the genomic level can identify more than 90% of FBN1 mutations, deep intronic mutations may be missed and require whole-genome sequencing or cDNA sequencing [PMID 24610719]. Many FBN1 variants still remain unknown [PMID 30534251]. Molecular analysis of the FBN1 gene can be helpful in identifying individuals who are at risk [PMID 16930007]."
+  },
+  {
+    "id": 125,
+    "topic": "tamsulosin indications",
+    "question": "What is tamsulosin used for?",
+    "narrative": "The patient found tamsulosin in the medicine cabinet and cannot remember who got this prescription and why.",
+    "answer": "Tamsulosin is primarily used to treat lower urinary tract symptoms (LUTS) secondary to benign prostatic hyperplasia (BPH) [PMID 18345957, PMID 14680444]. It has been demonstrated to be an effective treatment for patients with lower urinary symptoms suggestive of BPH [PMID 14680444]. Beyond its original indication, tamsulosin is also indicated for other genito-urinary tract conditions in both men and women [PMID 18345957]. Specifically, research has evaluated its use for the treatment of LUTS in women [PMID 22983886]. Over the last 30 years, its utilization has extended to conditions beyond its original indication [PMID 31555556]."
+  },
+  {
+    "id": 127,
+    "topic": "gene therapy effect",
+    "question": "What effects does gene therapy have on an organism?",
+    "narrative": "This cancer patient has heard about gene therapy. He is interested in the effect gene therapy has on the body.",
+    "answer": "Gene therapy is an experimental technique that uses genes to treat or prevent disease [PMID 27358116]. It involves the delivery of nucleic acid for the expression of a therapeutic product to treat diseases on a genetic level [PMID 30536225]. This is achieved by transferring genetic material into a patient's cells [PMID 32696132] or inserting foreign genetic material to correct a health disorder [PMID 20027718].\n\nThe effects of gene therapy vary based on the therapeutic strategy used. It can be used to repair or replace a faulty gene [PMID 15546456], or utilize wild type copies of genes to correct the root cause of recessive genetic disorders [PMID 16782218]. Additionally, genes can be used to mediate powerful and selective toxicity to cancer cells [PMID 16782218]. Overall, gene therapy aims to revolutionize medicine by treating the causes of a disease rather than just the symptoms [PMID 15881698]."
+  },
+  {
+    "id": 129,
+    "topic": "abrupt cessation of metoprolol",
+    "question": "What are side effects for suddenly stopping metoprolol?",
+    "narrative": "The patient noticed her ankles are swollen and believes this might be the side effect of metoprolol she is taking for her high blood pressure. It is too late to call the doctor. She thinks about skipping the next dose. She would like to know if this will cause any problems.",
+    "answer": "Abrupt cessation of metoprolol can lead to rebound hypertension [PMID 3813760]. In one reported case, the abrupt cessation of metoprolol tartrate and clonidine hydrochloride resulted in a hypertensive crisis [PMID 3813760]. While prolonged low doses before complete withdrawal can decrease the changes observed after abrupt withdrawal, this approach does not completely prevent them [PMID 7053309]."
+  },
+  {
+    "id": 131,
+    "topic": "side effects of formoterol",
+    "question": "What are side effects of using formoterol?",
+    "narrative": "An asthma patient who is taking formoterol is interested in the side effects of this drug.",
+    "answer": "Formoterol produces side effects typical of its class [PMID 11534893]. While there were concerns that its long-acting profile might lead to side effects with a longer duration than short-acting beta2-agonists, evidence indicates the duration is no longer than that of short-acting beta2-agonists [PMID 11534893]. High doses of inhaled formoterol and oral formoterol are associated with more adverse events than the recommended doses of 6 to 24 micrograms [PMID 9506248]. Compared with terbutaline, formoterol had significantly less effect on blood pressure, pulse, cardiac frequency, serum potassium, and the QT interval [PMID 11534893]. Overall, formoterol is considered well tolerated, even in high doses [PMID 11534893]."
+  },
+  {
+    "id": 133,
+    "topic": "ovarian cyst surgery",
+    "question": "What are the short and long term effects of surgery and its complexity for women with ovarian cyst?",
+    "narrative": "The woman with ovarian cyst was told she needs surgery. She is worried the surgery will affect her fertility. She would like to know which procedures are recommended as having less negative effects.",
+    "answer": "The impact of ovarian cysts on infertility is a subject of debate, as it is difficult to determine the actual effect of the cyst and its treatment on future fertility [PMID 24559614]. Analysis of epidemiologic data indicates that the role of cysts in infertility is controversial and that surgical treatment is often more harmful to the ovarian reserve than the cyst itself [PMID 24559614]. \n\nRegarding surgical complexity and outcomes, studies have assessed the feasibility and short-term outcomes of laparoscopic surgery for women with large benign ovarian cysts [PMID 22791381, PMID 17949797]. Research has also evaluated the short- and long-term outcomes of intraoperative spillage during the laparoscopic removal of benign cysts [PMID 31586249]. Additionally, the long-term effects of laparoscopic cystectomy on the ovarian reserve have been evaluated specifically in patients with unilateral and bilateral ovarian endometriomas [PMID 26420658]. Other studies focus on ovarian recovery following laparoscopic enucleation [PMID 16213426] and the comparative effects of different surgical interventions for benign ovarian cysts on the ovarian reserve [PMID 35835531]."
+  },
+  {
+    "id": 135,
+    "topic": "untreated thyroid problems",
+    "question": "What can happen if you are prescribed thyroid meds but don't take them?",
+    "narrative": "The patient was prescribed medications for her thyroid, but doesn't want to take the drugs. She is wondering if this is safe.",
+    "answer": "It is not safe to leave thyroid dysfunction untreated, as it can cause or exacerbate numerous symptoms and can eventually lead to death [PMID 23045326]. In postmenopausal women, untreated thyroid disease may exacerbate the risks of cardiovascular disease and osteoporosis [PMID 17448261]. For pregnant women, untreated maternal hypothyroidism can have adverse effects on both the fetus and the mother [PMID 26573046]. Additionally, patients who have undergone thyroid destructive therapy may develop severe hypothyroidism and associated sequelae if they do not receive thyroid replacement therapy [PMID 32175200]."
+  },
+  {
+    "id": 137,
+    "topic": "lowering a1c levels",
+    "question": "In an adult with type 2 diabetes would metformin or ketogenic diet be the most effective option to lower a1c levels?",
+    "narrative": "The patient has type 2 diabetes and wonders if metformin or ketogenic diet will control the blood glucose levels better.",
+    "answer": "Based on the provided evidence, a ketogenic diet is superior to controls for glycemic control and lipid profile improvements, leading to its recommendation as an adjunctive treatment for type 2 diabetes [PMID 33163300]. A low-carbohydrate, ketogenic diet (LCKD) may be effective for improving glycemia and reducing medications in patients with type 2 diabetes [PMID 16318637]. Additionally, a low-carbohydrate, high-fat, ketogenic diet has been used to optimize glycemic control in type 2 diabetic patients [PMID 30881073]. The provided evidence does not contain information regarding metformin; therefore, a comparison between the effectiveness of metformin and a ketogenic diet for lowering A1c levels cannot be made based on the available text."
+  },
+  {
+    "id": 139,
+    "topic": "untreated anorexia",
+    "question": "What are possible long-term outcomes of not treating anorexia?",
+    "narrative": "A young woman is afraid of gaining weight and suspects she might be anorexic. She is wondering if continuing her life-style will have negative effects on her health in the future.",
+    "answer": "Earlier studies have indicated that patients with anorexia nervosa experience poor long-term outcomes [PMID 17077433]. Potential long-term effects include impacts on bone health [PMID 30819332] and long-term mortality [PMID 16885933]."
+  },
+  {
+    "id": 141,
+    "topic": "yellow fever complications",
+    "question": "What are the possible complications for a person that has yellow fever?",
+    "narrative": "After visiting Ethiopia, the patient was diagnosed with yellow fever. He would like to know if there are likely complications.",
+    "answer": "Yellow fever is a mosquito-borne viral hemorrhagic fever and is considered one of the most lethal diseases of humankind [PMID 16117712, PMID 36707912]. The disease can follow a dramatic course [PMID 29308400]."
+  },
+  {
+    "id": 143,
+    "topic": "coping with Huntington's disease",
+    "question": "How to live with Huntington's disease?",
+    "narrative": "A patient diagnosed with Huntington's disease knows that his condition will deteriorate. He is looking for coping techniques and advice on lifestyle changes that may improve his life quality.",
+    "answer": "Because Huntington's disease is currently incurable, the primary goal is to maximize functional independence and quality of life for the affected individual, their family members, and carers [PMID 30012004]. To achieve this, patient education programs aim to improve quality of life by educating and training patients and caregivers to develop coping strategies for psychosocial stressors [PMID 25063190]. There is significant opportunity to plan and choreograph supportive services and care for both the patients and their families [PMID 15130098]. Such supportive care is necessary because the disease has a devastating impact and a long trajectory [PMID 15130098]. Understanding how patients and families cope with daily life outside of the clinical setting is essential to better serve this population [PMID 35526033]."
+  },
+  {
+    "id": 145,
+    "topic": "opdivo side effects",
+    "question": "What are the side effects of opdivo treatment for melanoma?",
+    "narrative": "The patient diagnosed with melanoma was prescribed opdivo. He would like to know what side effects to expect.",
+    "answer": "Based on the provided evidence, there is no specific mention of \"opdivo\" or its particular side effects. The evidence discusses side effects and toxicities related to targeted therapies and pembrolizumab for advanced melanoma [PMID 24185314, PMID 25927979]. One reported entity of side effects in the literature is immune-related adverse events (irAEs) [PMID 29381409]. New side effects due to these agents have continued to emerge [PMID 36597613]. Knowledge, understanding, diagnosis, and management of these side effects are essential for the optimal care of patients and for prevention by treating physicians [PMID 27373241, PMID 25927979]. Additionally, the use of the Common Terminology Criteria for Adverse Events (CTCAE) in trials may underestimate the incidence of clinically significant immune-related adverse events [PMID 28817755]."
+  },
+  {
+    "id": 147,
+    "topic": "atherosclerosis treatment",
+    "question": "What treatments options are available for atherosclerosis?",
+    "narrative": "A 60-year-old man diagnosed with atherosclerosis is looking for the best treatment.",
+    "answer": "Available treatment options for atherosclerosis include surgical treatments, experimental treatments, and the use of various drugs [PMID 37009489]. Specifically, statins are the first-choice lipid-lowering drugs for treating hypercholesterolemia, which is a major risk factor for the disease [PMID 30212682]. Additionally, anti-inflammatory treatments are being explored as novel therapeutic candidates to reduce cardiovascular disease [PMID 37009489]. While state-of-the-art therapies currently exist [PMID 28594053], the development of effective therapeutic strategies remains challenging and requires further research to reach full potential [PMID 35456556]. This limitation is partly due to the complex and poorly understood mechanisms underlying the development and progression of atherosclerosis [PMID 31025381]. Ongoing preclinical research continues to identify new therapeutic targets for the prevention and treatment of the condition [PMID 34251531]."
+  },
+  {
+    "id": 149,
+    "topic": "lumbar disc herniation diagnosis",
+    "question": "What is the best test to rule out a lumbar disc herniation?",
+    "narrative": "A 52-year-old male with pain in the lower back and right leg for 1 month was told he might have a herniated disc. He is wondering what tests will show if he has a lumbar disc herniation.",
+    "answer": "Magnetic resonance imaging (MRI) has emerged as the gold standard for diagnosing a herniated disc [PMID 29944306]. Imaging, specifically MRI or CT, must be used to confirm the clinical level of disc herniation [PMID 17633749]. While MRI is a useful diagnostic tool for all patients with lumbar disc herniation, achieving a correct preoperative diagnosis can still be difficult [PMID 18651331]. Additionally, primary care clinicians utilize physical examinations and patient history to evaluate the likelihood of herniation and determine if further imaging or surgery is necessary [PMID 20166095]. Other evaluations may include the Lasegue test and MRI scans [PMID 35514060], or lumbar discography to determine diagnostic accuracy and surgical outcomes [PMID 15765459]. However, it is noted that a single radiological investigation is unreliable for an absolute diagnosis of intradural disc herniation [PMID 32399334]."
+  },
+  {
+    "id": 151,
+    "topic": "gray scaly skin",
+    "question": "What has turned my skin gray and scaly?",
+    "narrative": "A 54-year-old man noticed his skin tone became gray and the skin is scaly. He is wondering what caused these skin changes.",
+    "answer": "Based on the provided evidence, gray skin discoloration can be associated with several conditions. Gray diseases are a group of skin disorders characterized primarily by gray discoloration, which may or may not involve the nails and mucous membranes [PMID 31896405]. Acquired conditions that can cause gray coloring include drug reactions, erythema dyschromicum perstans, lichen planus pigmentosus, and late-stage organ failure [PMID 31896405]. Additionally, ashy dermatosis presents as asymptomatic, symmetrically distributed gray-colored macules on the face, neck, trunk, and upper extremities [PMID 23439983, PMID 31220891]. Some cases of gray-to-lead-colored patches are symmetrically distributed over the body [PMID 20523842]. \n\nRegarding scaly skin, it is clinically characterized as being rough, scaly, and often itchy [PMID 19087805]. Scaly skin can present as pruritic lesions that appear cracked, erythematous, and scaly [PMID 29383212]. Furthermore, a scaly scalp is a common issue affecting both adult and pediatric populations [PMID 15516055]."
+  },
+  {
+    "id": 153,
+    "topic": "hct levels for blood transfusion",
+    "question": "If hct is 34, does pt need blood transfusion?",
+    "narrative": "Following some blood loss, the patient had hct 34% on the blood test. The family is wondering if the patient needs blood transfusion.",
+    "answer": "The provided evidence does not specify a numerical hematocrit (Hct) threshold, such as 34%, to determine if a patient requires a red blood cell (RBC) transfusion [PMID 16533277, PMID 15814294]. While physicians use the peripheral venous Hct value as a transfusion trigger [PMID 16533277], the main criteria for administering RBC transfusions are hemoglobin levels and clinical features [PMID 15814294]. \n\nIt is noted that Hct levels have limitations in assessing the need for RBC transfusion in hypovolemic anemic patients [PMID 16533277] and that initial Hct is not considered an accurate marker of blood loss [PMID 23177369]. Historically, a \"10/30 rule\" was used as a hemoglobin/hematocrit transfusion trigger [PMID 18807894]."
+  },
+  {
+    "id": 155,
+    "topic": "eye drops after cataract surgery",
+    "question": "For how long after cataract surgery do I keep dropping eye drops?",
+    "narrative": "The patient had cataract surgery and was prescribed eye drops. After using the drops for a week, the patient would like to know if he can stop using the drops.",
+    "answer": "The provided evidence does not specify a exact duration or timeframe for how long a patient should continue using eye drops after cataract surgery. The evidence focuses on the significance of using prescribed drops before and after surgery [PMID 36741269], the efficacy of different drop regimens (such as combination therapy versus multiple drops) [PMID 32764861], and the management of postoperative complications like ocular inflammation [PMID 22970738] and dry eye syndrome [PMID 32644170, PMID 37652420]. Additionally, research has examined prescribing patterns in Sweden from 2010 to 2017 [PMID 33880412] and factors contributing to patient noncompliance with prescribed eye drop regimens [PMID 36741269]."
+  },
+  {
+    "id": 157,
+    "topic": "factor V Leiden",
+    "question": "What are the potential consequences for women who carry the factor V Leiden mutation during pregnancy or when taking estrogen?",
+    "narrative": "A woman who carries a factor V Leiden mutation needs to be advised on the potential complications of IVF and pregnancy specific to her genotype.",
+    "answer": "Factor V Leiden is a gain-of-function gene mutation that creates a genetic predisposition to thromboembolic complications [PMID 21455861]. In women, the mutation interacts with acquired prothrombotic conditions, such as the use of oral contraceptives or hormone replacement therapy, to increase the risk of venous thromboembolism (VTE) [PMID 10085870, PMID 21455861].\n\nWhen combined with the prothrombotic influence of pregnancy, women carrying factor V Leiden face an increased risk of VTE and other adverse pregnancy outcomes, including fetal growth restriction, placental abruption, fetal loss, and pre-eclampsia [PMID 21455861]. While the management of these women using low molecular weight heparin has been shown to be safe and effective in improving pregnancy loss and preventing VTE, some literature suggests that the risk of VTE in pregnant women with heterozygous factor V Leiden is poorly documented, making the need for prophylaxis controversial [PMID 16026277, PMID 15918665]. Additionally, estimated risks for adverse pregnancy outcomes vary across studies due to small sample sizes and heterogeneity in study design [PMID 16026277]."
+  },
+  {
+    "id": 159,
+    "topic": "spontaneous coronary artery dissection",
+    "question": "What is the age group that most commonly experiences spontaneous coronary artery dissection (SCAD)?",
+    "narrative": "A 31-year-old woman present to ER with MI symptoms. The emergency physician suspects it may be caused by SCAD.",
+    "answer": "Spontaneous coronary artery dissection (SCAD) commonly affects the younger population [PMID 20440039, PMID 36105840], specifically patients under age 50 [PMID 25317268]. It is a particularly important cause of acute coronary syndromes among young women [PMID 36706915] and females of childbearing age [PMID 20440039, PMID 15156006]."
+  },
+  {
+    "id": 161,
+    "topic": "diabetic nephropathy",
+    "question": "What are the signs and symptoms of advanced stages of diabetic nephropathy?",
+    "narrative": "A diabetic patient complains of confusion and swollen ankles. His healthcare provider is concerned the patient's diabetic nephropathy may be progressing.",
+    "answer": "Based on the provided evidence, diabetic nephropathy represents a continuum that progresses from microalbuminuria to overt nephropathy or macroalbuminuria, and finally to end-stage renal failure (ESRF) [PMID 18994672]. Once established, the condition progresses relentlessly to end-stage renal failure, typically over seven years, though this can range from five to 20 years [PMID 3536200]. Diabetic nephropathy is identified as the principal and leading cause of end-stage renal disease (ESRD) in the western world [PMID 16538925, PMID 23199046, PMID 27389078]. The deterioration of renal function occurs through five clinical stages, each characterized by a specific histologic description [PMID 26058248]."
+  },
+  {
+    "id": 163,
+    "topic": "leukemia",
+    "question": "What are some common signs and symptoms of leukemia that patients might experience?",
+    "narrative": "A PCP suspects the patient who complains of fatigue and chills may have leukemia and wants to ask the patient if she has the other most common symptoms.",
+    "answer": "The provided evidence does not list specific signs and symptoms of leukemia, but it notes that in most children presenting with common signs and symptoms, the diagnosis is readily made [PMID 19241238]. Patients with chronic leukemias typically present with less severe symptoms than those with acute leukemias [PMID 31613564]. Clinical manifestations of childhood acute myeloid leukemia (AML) and acute lymphoblastic leukemia (ALL) appear very similar, although the frequency of certain clinical characteristics differs [PMID 36148187]. Additionally, children receiving treatment for leukemia may experience various symptoms resulting from both the disease and its treatment [PMID 29379835]. Adults with acute leukemia experience both physiologic and psychological symptoms [PMID 24769593]. Awareness of uncommon signs and symptoms, combined with laboratory tests, may assist in earlier diagnosis and proper management [PMID 20104987]."
+  },
+  {
+    "id": 165,
+    "topic": "bone cancer",
+    "question": "What is the most common form of bone cancer, and in which demographic does it occur most often?",
+    "narrative": "An X-ray shows a mottled appearance of bone in the patient's arm. The provider needs information on the common bone cancers and demographics.",
+    "answer": "Osteosarcoma is the most common bone cancer [PMID 30215968] and is the most frequently diagnosed bone tumor among children and adolescents [PMID 24002129]. This cancer most often occurs in children and adolescents [PMID 30215968], although it can affect people of all ages [PMID 24002129]."
+  },
+  {
+    "id": 167,
+    "topic": "multisystem inflammatory syndrome in children",
+    "question": "What are the criteria for diagnosing a child with multisystem inflammatory syndrome in children (MIS-C)?",
+    "narrative": "The provider is looking for the best workup for a child with suspected multisystem inflammatory syndrome.",
+    "answer": "The provided evidence does not list the specific diagnostic criteria for multisystem inflammatory syndrome in children (MIS-C). However, it notes that diagnosis can be difficult for clinicians because the features of MIS-C overlap with other syndromes [PMID 36319189] and other common childhood illnesses presenting to the emergency department [PMID 33651762]. Due to this significant overlap, an extensive workup of the syndrome has become necessary [PMID 33651762]."
+  },
+  {
+    "id": 169,
+    "topic": "myoclonus",
+    "question": "What are some of the treatments prescribed for myoclonus and their possible side effects?",
+    "narrative": "The provider is looking for the treatments for myoclonus, specifically with minimal adverse reactions.",
+    "answer": "Treatment options for myoclonus include pharmacologic and surgical options [PMID 30874443]. Recent advances in surgical therapy and medications for neurological disorders may provide new therapeutic options [PMID 25398378]. The optimal treatment strategy is determined by neurophysiological classification and a careful evaluation of the underlying etiology [PMID 32910414]. In certain instances, myoclonus may improve if the provoking cause is eliminated [PMID 25398378].\n\nRegarding efficacy and safety, treatment for myoclonus is commonly limited by side effects and/or is not effective [PMID 24037428]. Management remains a challenge due to a paucity of rigorous clinical trials and few available randomized controlled trials to guide optimal treatment paradigms [PMID 30874443, PMID 24037428]. Consequently, treatment is often guided by case series and expert experience [PMID 30874443]."
+  },
+  {
+    "id": 171,
+    "topic": "T2DM in children and adolescents",
+    "question": "What are the risk factors associated with type 2 diabetes mellitus (T2DM) in children and adolescents?",
+    "narrative": "The provider is looking for information on epidemiology, presentation, and diagnosis of type 2 diabetes mellitus in children and adolescents.",
+    "answer": "The incidence and prevalence of type 2 diabetes mellitus (T2DM) are increasing worldwide among children and adolescents [PMID 17180786, PMID 19893798, PMID 33849819]. This increase mirrors the epidemic of paediatric obesity [PMID 27622231], and the global obesity epidemic has raised concerns regarding a tide of T2DM in childhood [PMID 18515272]. The American Diabetes Association has defined the risk factors associated with the increased risk of developing T2DM in youths [PMID 33849819, PMID 34872635]. Early identification of these risk factors is essential to implement effective interventions and improve the long-term health-related quality of life for at-risk children [PMID 26333612]."
+  },
+  {
+    "id": 173,
+    "topic": "IVF clinical issues and questions",
+    "question": "What is the main reason for the decreased success of in vitro fertilization (IVF) in older females, particularly those over 40 years?",
+    "narrative": "The provider is looking for causes of IVF failures and their mitigation in women over 40.",
+    "answer": "The main reasons for the decreased success of in vitro fertilization (IVF) in older females are the decline in both the quality and quantity of oocytes associated with age [PMID 35367012]. Specifically, oocyte quality is identified as a likely cause of reduced success, as women over 40 who undergo IVF using oocytes donated by younger women achieve success rates comparable to those of young patients [PMID 21617930]. Consequently, advanced female age negatively impacts assisted reproductive technology (ART) outcomes and decreases live birth rates, particularly after 40 years of age [PMID 26396576]. This results in a sharp decline in pregnancy rates with advancing age across ART, including IVF [PMID 20623902]."
+  },
+  {
+    "id": 175,
+    "topic": "adult dyspepsia treatment",
+    "question": "What is the recommended first-line treatment for patients under 60 years of age with dyspepsia who test negative for Helicobacter pylori or continue to have symptoms after successful eradication of H. pylori?",
+    "narrative": "The provider is looking for management of an adult patient who continues experiencing dyspepsia after eradication of H. pylori.",
+    "answer": "For patients who test negative for *Helicobacter pylori* or remain symptomatic despite successful eradication, empirical treatment with an antisecretory drug or proton pump inhibitor (PPI) therapy is recommended [PMID 22918384, PMID 16280963]. Specifically, the first-choice treatment for functional dyspepsia is a maximal dose of a PPI for 8 weeks [PMID 36170129]."
+  },
+  {
+    "id": 177,
+    "topic": "ophthalmic atropine",
+    "question": "What specific ophthalmic conditions is atropine used to treat?",
+    "narrative": "A pharmacist is looking for information on use of atropine as ophthalmic treatment.",
+    "answer": "Atropine is used in the treatment of keratitis and during ophthalmic surgery [PMID 35579108]. It is utilized for the treatment of amblyopia, iridocyclitis, and malignant glaucoma, as well as for cycloplegia before optometry [PMID 33832055]. Additionally, topical formulations of atropine are used for the management of anterior and posterior segment ocular diseases [PMID 33787441]. Atropine has also been used as a pharmaceutical strategy to slow the progression of myopia [PMID 29715053], and its investigational use for myopia prevention and control in clinical trials can be beneficial [PMID 33832055]."
+  },
+  {
+    "id": 179,
+    "topic": "palliative care for patients with advanced heart failure",
+    "question": "What is the estimated prevalence of depression in symptomatic heart failure (HF) patients, and what is its association with clinical outcomes?",
+    "narrative": "A PCP is looking for decision support for palliative care and management of symptoms in patients with advanced heart failure.",
+    "answer": "Depression is common in patients with heart failure (HF) [PMID 22341693] and is considered a major issue in this population [PMID 28785463]. The prevalence of depression increases sharply as the severity of heart failure symptoms increases [PMID 20622081]. \n\nRegarding clinical outcomes, depression and depressive symptoms are associated with adverse outcomes [PMID 22341693] and serve as risk factors for poor outcomes [PMID 19944369]. Specifically, worsening depressive symptoms are associated with adverse clinical outcomes in HF patients [PMID 21251581]. Additionally, depressive symptoms are positively associated with disease severity [PMID 19944369]."
+  }
+]
